@@ -1,8 +1,9 @@
 #![allow(dead_code)]
+use serde::{Serialize,Deserialize};
 use std::fmt;
 use rand::Rng;
 
-#[derive(PartialEq,Copy,Clone)]
+#[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
 pub enum Suit {
     Spades = 0,
     Diamonds = 1,
@@ -34,7 +35,7 @@ impl TryFrom<usize> for Suit {
     }
 }
 
-#[derive(PartialEq,Copy,Clone,PartialOrd)]
+#[derive(PartialEq,Copy,Clone,PartialOrd,Serialize,Deserialize)]
 pub enum Rank {
     Ace = 9,
     King = 8,
@@ -81,7 +82,7 @@ impl TryFrom<usize> for Rank {
     }
 }
 
-#[derive(PartialEq,Copy,Clone)]
+#[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,

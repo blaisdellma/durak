@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use rand::Rng;
 use tracing::debug;
 pub mod card;
@@ -289,18 +290,12 @@ impl GameState {
 
 fn gen_to_play_state<'a>(state: &'a GameState) -> ToPlayState<'a> {
     ToPlayState {
-        attack_cards: &state.attack_cards,
-        defense_cards: &state.defense_cards,
-        hand: &state.players[state.to_play].hand,
+        attack_cards: Cow::Borrowed(&state.attack_cards),
+        defense_cards: Cow::Borrowed(&state.defense_cards),
+        hand: Cow::Borrowed(&state.players[state.to_play].hand),
         trump: state.trump,
         player_hand_sizes: state.players.iter()
-            .map(|p| {
-                if std::ptr::eq(p,&state.players[state.to_play]) {
-                    37
-                } else {
-                    p.hand.len()
-                }
-            }).collect(),
+            .map(|p| p.hand.len()).collect(),
         attacker: state.attacker,
         defender: state.defender,
         to_play: state.to_play,

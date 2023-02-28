@@ -77,12 +77,12 @@ impl TUIDurakPlayer {
         print_card_stack(state);
 
         println!("");
-        print!("A:  "); print_cards(state.attack_cards,state.trump); println!("");
+        print!("A:  "); print_cards(&state.attack_cards,state.trump); println!("");
         println!("");
-        print!("D:  "); print_cards(state.defense_cards,state.trump); println!("");
+        print!("D:  "); print_cards(&state.defense_cards,state.trump); println!("");
         println!("");
 
-        print_cards(state.hand,state.trump);
+        print_cards(&state.hand,state.trump);
 
         println!("");
         for x in 0..state.hand.len() {

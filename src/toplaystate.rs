@@ -1,11 +1,14 @@
+use std::borrow::Cow;
+use serde::{Serialize,Deserialize};
 use crate::*;
 
 // limited game state available to players on their turn
+#[derive(Serialize,Deserialize)]
 pub struct ToPlayState<'a> {
     pub trump: Suit,
-    pub attack_cards: &'a Vec<Card>,
-    pub defense_cards: &'a Vec<Card>,
-    pub hand: &'a Vec<Card>,
+    pub attack_cards: Cow<'a,Vec<Card>>,
+    pub defense_cards: Cow<'a,Vec<Card>>,
+    pub hand: Cow<'a,Vec<Card>>,
     pub player_hand_sizes: Vec<usize>,
     pub attacker: usize,
     pub defender: usize,
