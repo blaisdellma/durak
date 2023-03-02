@@ -16,59 +16,61 @@ fn print_cards(cards: &[Card], trump: Suit) {
 fn print_card_stack(state: &ToPlayState) {
     let s = 5;
 
-    for i in 0..state.player_hand_sizes.len() {
-        if i == state.to_play { print!("\x1b[31m"); }
-        print!("{}{:>s$}",format!("  {}   ",i+1),"");
-        if i == state.to_play { print!("\x1b[0m"); }
+    let bold_to_play = |id, func: &dyn Fn() -> ()| {
+        if id == state.player_info[state.to_play].id { print!("\x1b[31m"); }
+        func();
+        if id == state.player_info[state.to_play].id { print!("\x1b[0m"); }
+    };
+
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}",format!("  {}   ",info.id),"");
+        });
     }
     println!("");
 
-    for i in 0..state.player_hand_sizes.len() {
-        if i == state.to_play { print!("\x1b[31m"); }
-        print!("{}{:>s$}","┌──┐  ","");
-        if i == state.to_play { print!("\x1b[0m"); }
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}","┌──┐  ","");
+        });
     }
     println!("");
 
-    for i in 0..state.player_hand_sizes.len() {
-        if i == state.to_play { print!("\x1b[31m"); }
-        print!("{}{:>s$}","│┌─┴┐ ","");
-        if i == state.to_play { print!("\x1b[0m"); }
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}","│┌─┴┐ ","");
+        });
     }
     println!("");
 
-    for i in 0..state.player_hand_sizes.len() {
-        if i == state.to_play { print!("\x1b[31m"); }
-        print!("{}{:>s$}","└┤┌─┴┐","");
-        if i == state.to_play { print!("\x1b[0m"); }
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}","└┤┌─┴┐","");
+        });
     }
     println!("");
 
-    for (i,n) in (&state.player_hand_sizes).iter().enumerate() {
-        if i == state.to_play {
-            print!("\x1b[31m");
-            print!("{}{:>s$}",format!(" └┤{:>2}│",state.hand.len()),"");
-            print!("\x1b[0m");
-        } else {
-            print!("{}{:>s$}",format!(" └┤{:>2}│",n),"");
-        }
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}",format!(" └┤{:>2}│",info.hand_len),"");
+        });
     }
     println!("");
 
-    for i in 0..state.player_hand_sizes.len() {
-        if i == state.to_play { print!("\x1b[31m"); }
-        print!("{}{:>s$}","  └──┘","");
-        if i == state.to_play { print!("\x1b[0m"); }
+    for info in state.player_info.iter() {
+        bold_to_play(info.id, &|| {
+            print!("{}{:>s$}","  └──┘","");
+        });
     }
     println!("");
 }
 
 pub struct TUIDurakPlayer {
-    id: usize,
+    id: u64,
 }
 
 impl TUIDurakPlayer {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: u64) -> Self {
         TUIDurakPlayer { id }
     }
 
@@ -92,31 +94,31 @@ impl TUIDurakPlayer {
         println!("");
     }
 
-    fn get_input(&self) -> Result<usize,Box<dyn std::error::Error>> {
+    fn get_input<T: std::str::FromStr<Err=std::num::ParseIntError>>(&self) -> DurakResult<T> {
         print!("Your move:  ");
         std::io::stdout().flush()?;
 
         let mut buf = String::new();
         std::io::stdin().read_line(&mut buf)?;
         let buf = buf.trim_end_matches(char::is_whitespace);
-        buf.parse().map_err(|e| format!("{}",e).into())
+        buf.parse().map_err(|e| format!("{:?}",e).into())
     }
 }
 
 impl DurakPlayer for TUIDurakPlayer {
-    fn attack(&self, state: &ToPlayState) -> Option<Card> {
+    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are attacking");
         self.display_game_state(state);
 
         loop {
-            match self.get_input() {
+            match self.get_input::<usize>() {
                 Err(e) => { warn!("Input error: {}",e); },
-                Ok(x) if x == 0 => { return None; },
+                Ok(x) if x == 0 => { return Ok(None); },
                 Ok(x) if x > state.hand.len() => { warn!("Input out of range"); },
                 Ok(x) => {
                     match state.validate_attack(&Some(state.hand[x-1])) {
-                        Ok(_) => return Some(state.hand[x-1]),
+                        Ok(_) => return Ok(Some(state.hand[x-1])),
                         Err(_) => { warn!("Disallowed attack card"); },
                     }
                 },
@@ -125,23 +127,23 @@ impl DurakPlayer for TUIDurakPlayer {
 
     }
 
-    fn defend(&self, state: &ToPlayState) -> Option<Card> {
+    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are defending");
         self.display_game_state(state);
 
         loop {
-            match self.get_input() {
+            match self.get_input::<usize>() {
                 Err(e) => { warn!("Input error: {}",e); },
-                Ok(x) if x == 0 => { return None; },
+                Ok(x) if x == 0 => { return Ok(None); },
                 Ok(x) if x > state.hand.len() => { continue; }
-                Ok(x) if state.validate_defense(&Some(state.hand[x-1])).is_ok() => { return Some(state.hand[x-1]); },
+                Ok(x) if state.validate_defense(&Some(state.hand[x-1])).is_ok() => { return Ok(Some(state.hand[x-1])); },
                 _ => continue
             }
         }
     }
 
-    fn pile_on(&self, state: &ToPlayState) -> Vec<Card> {
+    fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are piling on");
         self.display_game_state(state);
@@ -155,12 +157,12 @@ impl DurakPlayer for TUIDurakPlayer {
                 }
             }
             println!("");
-            match self.get_input() {
+            match self.get_input::<usize>() {
                 Err(e) => { warn!("Input error: {}", e); },
                 Ok(x) if x == 0 => {
                     let output: Vec<Card> = inds.iter().map(|x| state.hand[x - 1]).collect();
                     match state.validate_pile_on(&output) {
-                        Ok(_) => return output,
+                        Ok(_) => return Ok(output),
                         Err(e) => { warn!("Validation error: {}", e); },
                     }
                 },
@@ -176,12 +178,41 @@ impl DurakPlayer for TUIDurakPlayer {
         }
     }
 
-    fn won(&self) {
-        println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
+    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+        println!("Player ID: {}", self.id);
+        self.display_game_state(state);
+        Ok(())
     }
 
-    fn lost(&self) {
+    fn won(&mut self) -> DurakResult<()> {
+        println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
+        Ok(())
+    }
+
+    fn lost(&mut self) -> DurakResult<()> {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
+        Ok(())
+    }
+
+    fn get_id(&mut self,player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
+        println!("Player List:");
+        for info in player_info {
+            println!("Player {}",info.id);
+        }
+        loop {
+            match self.get_input() {
+                Err(e) => { warn!("Input error: {}",e); },
+                Ok(x) => {
+                    if !player_info.iter().map(|info| info.id).collect::<Vec<_>>().contains(&x) {
+                        self.id = x;
+                        break;
+                    } else {
+                        println!("That ID is already taken.");
+                    }
+                },
+            }
+        }
+        Ok(self.id)
     }
 }
 

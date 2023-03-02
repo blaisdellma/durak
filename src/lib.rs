@@ -1,31 +1,28 @@
 use std::borrow::Cow;
 use rand::Rng;
-use tracing::debug;
+use tracing::{debug,error};
+
 pub mod card;
 use card::*;
+pub use card::DurakResult;
+
 pub mod toplaystate;
 use toplaystate::*;
 
-fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) {
-    let mut ind = 0;
-    while ind < v_from.len() && v_from[ind] != *card { ind += 1};
-    if ind < v_from.len() {
-        v_to.push(v_from.swap_remove(ind));
-    }
-}
-
 pub trait DurakPlayer: Send + Sync {
-    fn attack(&self, state: &ToPlayState) -> Option<Card>;
-    fn defend(&self, state: &ToPlayState) -> Option<Card>;
-    fn pile_on(&self, state: &ToPlayState) -> Vec<Card>;
-    fn lost(&self);
-    fn won(&self);
+// pub trait DurakPlayer {
+    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+    fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>>;
+    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()>;
+    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64>;
+    fn lost(&mut self) -> DurakResult<()>;
+    fn won(&mut self) -> DurakResult<()>;
 }
 
 struct Player {
-    id: usize,
+    id: u64,
     hand: Vec<Card>,
-    player_engine: Box<dyn DurakPlayer>,
 }
 
 #[derive(PartialEq)]
@@ -50,12 +47,70 @@ pub struct GameState {
     turn_type: GameTurnType,
 }
 
-impl GameState {
+pub struct DurakGame {
+    state: GameState,
+    engines: Vec<Box<dyn DurakPlayer>>,
+}
 
+impl DurakGame {
+    pub fn new() -> Self {
+        DurakGame {
+            state: GameState::new(),
+            engines: Vec::new(),
+        }
+    }
+
+    pub fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> DurakResult<()> {
+        let id = engine.get_id(&get_player_info(&self.state))?;
+        self.state.add_player(id)?;
+        self.engines.push(engine);
+        debug!("Added player # {}", id);
+        Ok(())
+    }
+
+    pub fn init<R: Rng>(&mut self, rng: &mut R) -> DurakResult<()> {
+        self.state.init(rng)
+    }
+
+    pub fn run_game(mut self) -> DurakResult<()> {
+        while self.state.turn_type != GameTurnType::GameEnd {
+            self.state.play_turn(&mut self.engines)?;
+            for (i,engine) in self.engines.iter_mut().enumerate() {
+                let to_play_state = gen_to_play_state_w_hand(&self.state,i);
+                engine.observe_move(&to_play_state)?;
+            }
+        }
+
+        // notify players of win/lost status
+        let handles : Vec<_> = std::iter::zip(self.state.players.into_iter(),self.engines.into_iter()).map(|(player,mut engine)| {
+            std::thread::spawn(move || {
+                if player.hand.len() == 0 {
+                    debug!("Player {} won ", player.id);
+                    match engine.won() {
+                        Ok(_) => (),
+                        Err(e) => { error!("Error: {}", e); },
+                    }
+                } else {
+                    debug!("Player {} lost ", player.id);
+                    match engine.lost() {
+                        Ok(_) => (),
+                        Err(e) => { error!("Error: {}", e); },
+                    }
+                }
+            })
+        }).collect();
+        for h in handles { h.join().unwrap(); }
+
+        Ok(())
+    }
+}
+
+impl GameState {
     pub fn new() -> Self {
         GameState {
             trump: Suit::Hearts,
             players: Vec::new(),
+            // engines: Vec::new(),
             draw_pile: Vec::new(),
             attack_cards: Vec::new(),
             defense_cards: Vec::new(),
@@ -67,27 +122,17 @@ impl GameState {
         }
     }
 
-    pub fn add_player(&mut self, engine: Box<dyn DurakPlayer>, id: usize) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn add_player(&mut self, id: u64) -> DurakResult<()> {
         if self.players.iter().any(|player| player.id == id) { return Err("Duplicate player id".into()); }
         if self.players.len() >= 6 { return Err("Cannot add more than 6 players".into()); }
         self.players.push(Player {
             id: id,
             hand: Vec::new(),
-            player_engine: engine,
         });
-        debug!("Added player # {}", id);
         Ok(())
     }
 
-    // fn get_player_by_id(&self, id: &usize) -> Option<&Player> {
-    //     self.players.iter().filter(|p| p.id == *id).take(1).next()
-    // }
-    
-    // fn get_in_play(&self) -> Vec<&Player> {
-    //     self.players.iter().filter(|p| p.hand.len() != 0).collect()
-    // }
-
-    pub fn init<R: Rng>(&mut self, rng: &mut R) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn init<R: Rng>(&mut self, rng: &mut R) -> DurakResult<()> {
         debug!("Initializing game");
         if self.players.len() < 2 {
             return Err(format!("Need at least two players to initialize game, only have ({})",self.players.len()).into());
@@ -99,7 +144,7 @@ impl GameState {
         self.trump = deck.get_trump()?;
         debug!("Trump suit is {}",self.trump);
         for player in &mut self.players {
-            deck.deal_cards(6,&mut player.hand)?;
+            deck.deal_cards(6,&mut player.hand,self.trump)?;
         }
         self.draw_pile.extend(deck.all_cards_left());
 
@@ -114,17 +159,12 @@ impl GameState {
         Ok(())
     }
 
-    // fn check_end(&self) -> bool {
-    //     if self.draw_pile.len() > 0 { return false; }
-    //     if self.get_in_play().len() > 1 { return false; }
-    //     true
-    // }
-
     // refills a players hand from the talon up to 6 cards
     fn refill_from_talon(&mut self, player_ind: usize) {
         while self.players[player_ind].hand.len() < 6 && self.draw_pile.len() > 0 {
             self.players[player_ind].hand.push(self.draw_pile.pop().unwrap());
         }
+        sort_cards(&mut self.players[player_ind].hand,self.trump);
     }
 
     fn refill_players_hands(&mut self) {
@@ -138,29 +178,8 @@ impl GameState {
         self.refill_from_talon(self.defender);
     }
 
-    pub fn run_game(mut self) -> Result<(),Box<dyn std::error::Error>> {
-        while self.turn_type != GameTurnType::GameEnd {
-            self.play_turn()?;
-        }
 
-        // notify players of win/lost status
-        let handles : Vec<_> = self.players.into_iter().map(|player| {
-            std::thread::spawn(move || {
-                if player.hand.len() == 0 {
-                    debug!("Player {} won ", player.id);
-                    player.player_engine.won();
-                } else {
-                    debug!("Player {} lost ", player.id);
-                    player.player_engine.lost();
-                }
-            })
-        }).collect();
-        for h in handles { h.join().unwrap(); }
-
-        Ok(())
-    }
-
-    fn play_turn(&mut self) -> Result<(),Box<dyn std::error::Error>> {
+    fn play_turn(&mut self, engines: &mut Vec<Box<dyn DurakPlayer>>) -> DurakResult<()> {
         debug!("Taking turn");
         let to_play_state = gen_to_play_state(&self);
         for player in &self.players {
@@ -182,7 +201,7 @@ impl GameState {
                         None
                     } else {
                         debug!("Querying player for attack");
-                        let attack = self.players[self.to_play].player_engine.attack(&to_play_state);
+                        let attack = engines[self.to_play].attack(&to_play_state)?;
                         if attack.is_none() { debug!("Player has selected to pass"); }
                         attack
                     }
@@ -214,7 +233,7 @@ impl GameState {
             },
             GameTurnType::Defense => {
                 debug!("Defense turn");
-                match self.players[self.to_play].player_engine.defend(&to_play_state) {
+                match engines[self.to_play].defend(&to_play_state)? {
                     Some(defense_card) => {
                         debug!("Player has selected {}",defense_card);
                         to_play_state.validate_defense(&Some(defense_card))?;
@@ -241,7 +260,7 @@ impl GameState {
                     if ind_pile == self.defender { continue; }
                     self.to_play = ind_pile;
                     let to_play_state = gen_to_play_state(&self);
-                    let pile_on_cards = self.players[ind_pile].player_engine.pile_on(&to_play_state);
+                    let pile_on_cards = engines[ind_pile].pile_on(&to_play_state)?;
                     to_play_state.validate_pile_on(&pile_on_cards)?;
                     debug!("Player {} has piled on {}",self.players[ind_pile].id,hand_fmt(&pile_on_cards));
 
@@ -288,16 +307,34 @@ impl GameState {
     }
 }
 
-fn gen_to_play_state<'a>(state: &'a GameState) -> ToPlayState<'a> {
+fn gen_to_play_state(state: &GameState) -> ToPlayState {
+    gen_to_play_state_w_hand(state,state.to_play)
+}
+
+fn gen_to_play_state_w_hand(state: &GameState, hand_ind: usize) -> ToPlayState {
     ToPlayState {
         attack_cards: Cow::Borrowed(&state.attack_cards),
         defense_cards: Cow::Borrowed(&state.defense_cards),
-        hand: Cow::Borrowed(&state.players[state.to_play].hand),
+        hand: Cow::Borrowed(&state.players[hand_ind].hand),
         trump: state.trump,
-        player_hand_sizes: state.players.iter()
-            .map(|p| p.hand.len()).collect(),
+        // player_info: state.players.iter()
+        //     .map(|player| (player.hand.len(),player.id)).collect(),
+        // player_info: state.players.iter()
+        //     .map(|player| PlayerInfo { id: player.id, hand_len: player.hand.len() } ).collect(),
+        player_info: get_player_info(state),
         attacker: state.attacker,
         defender: state.defender,
         to_play: state.to_play,
     }
+}
+
+fn get_player_info(state: &GameState) -> Vec<PlayerInfo> {
+        state.players
+            .iter()
+            .map(|player| { 
+                PlayerInfo {
+                    id: player.id,
+                    hand_len: player.hand.len()
+                }
+            }).collect()
 }

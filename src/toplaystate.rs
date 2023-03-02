@@ -2,6 +2,12 @@ use std::borrow::Cow;
 use serde::{Serialize,Deserialize};
 use crate::*;
 
+#[derive(Serialize,Deserialize)]
+pub struct PlayerInfo {
+    pub id: u64,
+    pub hand_len: usize,
+}
+
 // limited game state available to players on their turn
 #[derive(Serialize,Deserialize)]
 pub struct ToPlayState<'a> {
@@ -9,7 +15,7 @@ pub struct ToPlayState<'a> {
     pub attack_cards: Cow<'a,Vec<Card>>,
     pub defense_cards: Cow<'a,Vec<Card>>,
     pub hand: Cow<'a,Vec<Card>>,
-    pub player_hand_sizes: Vec<usize>,
+    pub player_info: Vec<PlayerInfo>,
     pub attacker: usize,
     pub defender: usize,
     pub to_play: usize,
@@ -34,7 +40,7 @@ fn beats_card(defense: &Card, attack: &Card, trump: &Suit) -> bool {
 // players can call before returning their move
 // to ensure that only valid moves are submitted
 impl ToPlayState<'_> {
-    pub fn validate_attack(&self, action: &Option<Card>) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn validate_attack(&self, action: &Option<Card>) -> DurakResult<()> {
         if self.to_play == self.defender { return Err("Attack Invalid: Defender's turn".into()); }
         match action {
             Some(attack_card) => {
@@ -56,7 +62,7 @@ impl ToPlayState<'_> {
         Ok(())
     }
 
-    pub fn validate_defense(&self, action: &Option<Card>) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn validate_defense(&self, action: &Option<Card>) -> DurakResult<()> {
         if self.to_play != self.defender { return Err("Defense Invalid: Not defender's turn".into()); }
         match action {
             Some(defense_card) => {
@@ -74,7 +80,7 @@ impl ToPlayState<'_> {
         Ok(())
     }
 
-    pub fn validate_pile_on(&self, cards: &[Card]) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn validate_pile_on(&self, cards: &[Card]) -> DurakResult<()> {
         if self.to_play == self.defender { return Err("Pile On Invalid: Not attackers' turn".into()); }
         for pile_on_card in cards {
             if !self.hand.contains(&pile_on_card) {

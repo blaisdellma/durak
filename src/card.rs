@@ -3,6 +3,8 @@ use serde::{Serialize,Deserialize};
 use std::fmt;
 use rand::Rng;
 
+pub type DurakResult<T> = Result<T,Box<dyn std::error::Error>>;
+
 #[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
 pub enum Suit {
     Spades = 0,
@@ -127,14 +129,14 @@ pub struct Deck<'a, R: Rng> {
 }
 
 impl<'a, R: Rng> Deck<'a, R> {
-    pub fn init(rng: &'a mut R) -> Result<Self,Box<dyn std::error::Error>> {
+    pub fn init(rng: &'a mut R) -> DurakResult<Self> {
         Ok(Deck {
             cards: (0..36).map(|i| Card::try_from(i)).collect::<Result<Vec<Card>,_>>()?,
             rng: rng,
         })
     }
 
-    pub fn get_trump(&mut self) -> Result<Suit,Box<dyn std::error::Error>> {
+    pub fn get_trump(&mut self) -> DurakResult<Suit> {
         Ok(match self.rng.gen_range(0..4usize) {
             0 => Suit::Hearts,
             1 => Suit::Clubs,
@@ -146,17 +148,36 @@ impl<'a, R: Rng> Deck<'a, R> {
         })
     }
 
-    pub fn deal_cards(&mut self, ncards: usize, hand: &mut Vec<Card>) -> Result<(),Box<dyn std::error::Error>> {
+    pub fn deal_cards(&mut self, ncards: usize, hand: &mut Vec<Card>, trump: Suit) -> DurakResult<()> {
         if ncards > self.cards.len() { return Err("Not enough cards in deck".into()); }
         for _ in 0..ncards {
             let k : usize = self.rng.gen_range(0..self.cards.len());
             hand.push(self.cards[k]);
             self.cards.remove(k);
         }
+        sort_cards(hand,trump);
         Ok(())
     }
 
     pub fn all_cards_left(self) -> Vec<Card> {
         self.cards
     }
+}
+
+pub fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) {
+    let mut ind = 0;
+    while ind < v_from.len() && v_from[ind] != *card { ind += 1};
+    if ind < v_from.len() {
+        v_to.push(v_from.swap_remove(ind));
+    }
+}
+
+pub fn sort_cards(cards: &mut Vec<Card>, trump: Suit) {
+    cards.sort_by_key(|&card| {
+        let val = usize::try_from(card).unwrap();
+        match card.suit {
+            suit if suit == trump => val + 100,
+            _ => val,
+        }
+    });
 }
