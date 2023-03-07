@@ -168,7 +168,7 @@ pub fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) 
     let mut ind = 0;
     while ind < v_from.len() && v_from[ind] != *card { ind += 1};
     if ind < v_from.len() {
-        v_to.push(v_from.swap_remove(ind));
+        v_to.push(v_from.remove(ind));
     }
 }
 

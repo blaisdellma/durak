@@ -15,7 +15,7 @@ impl DummyDurakPlayer {
         self
     }
     
-    pub fn wait(&self) {
+    fn wait(&self) {
         if self.wait > 0 {
             std::thread::sleep(std::time::Duration::from_millis(self.wait));
         }

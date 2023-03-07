@@ -2,14 +2,14 @@ use std::borrow::Cow;
 use serde::{Serialize,Deserialize};
 use crate::*;
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize,Deserialize,Copy,Clone)]
 pub struct PlayerInfo {
     pub id: u64,
     pub hand_len: usize,
 }
 
 // limited game state available to players on their turn
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize,Deserialize,Clone)]
 pub struct ToPlayState<'a> {
     pub trump: Suit,
     pub attack_cards: Cow<'a,Vec<Card>>,
@@ -40,6 +40,20 @@ fn beats_card(defense: &Card, attack: &Card, trump: &Suit) -> bool {
 // players can call before returning their move
 // to ensure that only valid moves are submitted
 impl ToPlayState<'_> {
+
+    pub fn to_static(&self) -> ToPlayState<'static> {
+        ToPlayState {
+            trump: self.trump,
+            attack_cards: Cow::Owned(self.attack_cards.clone().into_owned()),
+            defense_cards: Cow::Owned(self.defense_cards.clone().into_owned()),
+            hand: Cow::Owned(self.hand.clone().into_owned()),
+            player_info: self.player_info.clone(),
+            attacker: self.attacker,
+            defender: self.defender,
+            to_play: self.to_play,
+        }
+    }
+
     pub fn validate_attack(&self, action: &Option<Card>) -> DurakResult<()> {
         if self.to_play == self.defender { return Err("Attack Invalid: Defender's turn".into()); }
         match action {

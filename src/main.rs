@@ -11,6 +11,9 @@ use tuidurakplayer::*;
 mod tui2durakplayer;
 use tui2durakplayer::*;
 
+mod tui3durakplayer;
+use tui3durakplayer::*;
+
 mod dummydurakplayer;
 use dummydurakplayer::*;
 
@@ -22,9 +25,13 @@ fn init_log(prefix: &str) -> DurakResult<ta::non_blocking::WorkerGuard> {
     let (file, guard) = ta::non_blocking(ta::rolling::daily(log_dir,prefix));
     ts::fmt()
         .with_writer(file)
-        .with_max_level(Level::TRACE)
-        .init();
-    debug!("Log init successfull");
+        .with_max_level(Level::DEBUG)
+        .with_env_filter({
+            ts::EnvFilter::from_default_env()
+                .add_directive("durak=debug".parse()?)
+                .add_directive("cursive=warn".parse()?)
+        }).init();
+    debug!("Log init successful");
     Ok(guard)
 }
 
@@ -66,7 +73,7 @@ fn run_game_test<T: DurakPlayer + 'static>(num_players: usize,player: T) -> Dura
     let mut game = DurakGame::new();
 
     for _ in 0..num_players {
-        game.add_player(Box::new(DummyDurakPlayer::new().with_wait(2000)))?;
+        game.add_player(Box::new(DummyDurakPlayer::new().with_wait(500)))?;
     }
     game.add_player(Box::new(player))?;
 
@@ -80,10 +87,12 @@ fn main() {
     match match std::env::args().skip(1).next() {
         Some(arg) if arg == "server" => run_game_server(),
         Some(arg) if arg == "client" => run_game_client(),
-        Some(arg) if arg == "test" => run_game_test(2,TUINewDurakPlayer::new()),
+        Some(arg) if arg == "test1" => run_game_test(2,TUIDurakPlayer::new(0)),
+        Some(arg) if arg == "test2" => run_game_test(2,TUINewDurakPlayer::new()),
+        Some(arg) if arg == "test3" => run_game_test(2,TUISuperNewDurakPlayer::new()),
         _ => Err("Command option not recognized".into()),
     } {
-        Ok(()) => println!("All's good"),
-        Err(e) => println!("ERROR: {}",e),
+        Ok(()) => {},
+        Err(e) => eprintln!("ERROR: {}",e),
     }
 }
