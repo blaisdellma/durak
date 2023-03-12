@@ -72,7 +72,7 @@ impl TuiPlayer {
     fn end(&mut self) -> DurakResult<()> {
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.quit();
-        })).unwrap();
+        }))?;
         match self.handle.take() {
             Some(h) => h.join().map_err(|_| "Join Error".into()),
             None => Ok(()),
@@ -88,7 +88,7 @@ impl DurakPlayer for TuiPlayer {
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        })).unwrap();
+        }))?;
         loop {
             debug!("loop");
             match self.test_recv(receiver.clone()) {
@@ -112,7 +112,7 @@ impl DurakPlayer for TuiPlayer {
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        })).unwrap();
+        }))?;
         loop {
             match self.test_recv(receiver.clone()) {
                 Ok(Some(card)) => {
@@ -137,7 +137,7 @@ impl DurakPlayer for TuiPlayer {
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        })).unwrap();
+        }))?;
         Ok(())
     }
 
@@ -172,7 +172,7 @@ impl DurakPlayer for TuiPlayer {
                 hideable.unhide();
             });
             s.focus_name("id").unwrap();
-        })).unwrap();
+        }))?;
 
         let id = self.test_recv(receiver)?;
         self.id = id;
@@ -191,7 +191,7 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        })).unwrap();
+        }))?;
         self.test_recv(receiver)?;
         self.end()?;
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
@@ -210,7 +210,7 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        })).unwrap();
+        }))?;
         self.test_recv(receiver)?;
         self.end()?;
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
@@ -232,7 +232,7 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        })).unwrap();
+        }))?;
         self.test_recv(receiver)?;
         self.end()?;
         Ok(())
