@@ -3,7 +3,7 @@ use cursive::theme::{Style,ColorStyle,ColorType,PaletteColor};
 use cursive::traits::{Resizable,Nameable};
 use cursive::views::{DummyView,TextView,LinearLayout,Dialog,PaddedView,ResizedView,Button,EditView};
 
-use durak_core::{*,card::*,toplaystate::*};
+use durak_core::*;
 
 pub struct TUINewDurakPlayer {
     id: u64,

@@ -3,7 +3,7 @@ use serde::{Serialize,Deserialize};
 use std::fmt;
 use rand::Rng;
 
-pub type DurakResult<T> = Result<T,Box<dyn std::error::Error>>;
+use crate::*;
 
 #[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
 pub enum Suit {

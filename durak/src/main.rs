@@ -3,7 +3,7 @@ use tracing::{info,debug,warn,error,Level};
 use tracing_subscriber as ts;
 use tracing_appender as ta;
 
-use durak_core::{DurakGame,DurakResult,DurakPlayer};
+use durak_core::*;
 
 mod tuidurakplayer;
 use tuidurakplayer::*;
