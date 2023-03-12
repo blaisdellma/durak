@@ -13,13 +13,13 @@ use cursive::views::{HideableView,DummyView,TextView,LinearLayout,Dialog,PaddedV
 
 use durak_core::*;
 
-pub struct TUISuperNewDurakPlayer {
+pub struct TuiPlayer {
     id: u64,
     tui: CbSink,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
-impl TUISuperNewDurakPlayer {
+impl TuiPlayer {
     pub fn new() -> Self {
         let (sender, receiver) = bounded::<CbSink>(0);
         let handle = std::thread::spawn(|| {
@@ -43,7 +43,7 @@ impl TUISuperNewDurakPlayer {
             siv.run();
         });
         let tui = receiver.recv().unwrap();
-        TUISuperNewDurakPlayer {
+        TuiPlayer {
             id: 0,
             tui: tui,
             handle: Some(handle),
@@ -81,7 +81,7 @@ impl TUISuperNewDurakPlayer {
 
 }
 
-impl DurakPlayer for TUISuperNewDurakPlayer {
+impl DurakPlayer for TuiPlayer {
     fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
         let (sender,receiver) = bounded::<Option<Card>>(0);
         let id = self.id;
@@ -216,6 +216,27 @@ impl DurakPlayer for TUISuperNewDurakPlayer {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
         Ok(())
     }
+
+    fn error(&mut self, error: &str) -> DurakResult<()> {
+        let (sender,receiver) = bounded::<()>(0);
+        let error = error.to_owned();
+        self.tui.send(Box::new(move |s: &mut Cursive| {
+            s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
+                hideable.hide();
+            });
+            s.call_on_name("error", | hideable: &mut HideableView<PaddedView<LinearLayout>> | {
+                let layout = hideable.get_inner_mut().get_inner_mut();
+                layout.add_child(TextView::new(format!("Error: {}",error)));
+                hideable.unhide();
+            });
+            s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
+                sender.send(()).unwrap();
+            });
+        })).unwrap();
+        self.test_recv(receiver)?;
+        self.end()?;
+        Ok(())
+    }
 }
 
 fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, sender: Sender<T>) {
@@ -277,6 +298,7 @@ fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, se
 fn setup(siv: &mut CursiveRunnable) {
     setup_msg(siv,vec!["Congratulations!","YOU WON!!!"],"won");
     setup_msg(siv,vec!["Sorry","You lost"],"lost");
+    setup_msg(siv,vec![],"error");
     setup_scaffold(siv);
     setup_id(siv);
 }

@@ -1,8 +1,8 @@
 mod server;
-mod serverplayer;
-mod clientplayer;
+mod server_player;
+mod client_player;
 
 pub use server::DurakServer;
-pub use serverplayer::NetServerDurakPlayer;
-pub use clientplayer::NetClientDurakPlayer;
+pub use server_player::NetServerDurakPlayer;
+pub use client_player::NetClientDurakPlayer;
 

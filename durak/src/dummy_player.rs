@@ -60,6 +60,10 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(())
     }
 
+    fn error(&mut self, _error: &str) -> DurakResult<()> {
+        Ok(())
+    }
+
     fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
         for info in player_info {
             if self.id <= info.id {

@@ -65,13 +65,13 @@ fn print_card_stack(state: &ToPlayState) {
     println!("");
 }
 
-pub struct TUIDurakPlayer {
+pub struct CliPlayer {
     id: u64,
 }
 
-impl TUIDurakPlayer {
+impl CliPlayer {
     pub fn new(id: u64) -> Self {
-        TUIDurakPlayer { id }
+        CliPlayer { id }
     }
 
     fn display_game_state(&self, state: &ToPlayState) {
@@ -105,7 +105,7 @@ impl TUIDurakPlayer {
     }
 }
 
-impl DurakPlayer for TUIDurakPlayer {
+impl DurakPlayer for CliPlayer {
     fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are attacking");
@@ -191,6 +191,13 @@ impl DurakPlayer for TUIDurakPlayer {
 
     fn lost(&mut self) -> DurakResult<()> {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
+        Ok(())
+    }
+
+    fn error(&mut self, error: &str) -> DurakResult<()> {
+        println!("I'm sorry, there was an error.");
+        println!("Error: {}",error);
+        println!("The game is over now.");
         Ok(())
     }
 

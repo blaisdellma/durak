@@ -70,4 +70,12 @@ impl DurakPlayer for NetServerDurakPlayer {
         stream.flush()?;
         Ok(())
     }
+
+    fn error(&mut self, error: &str) -> DurakResult<()> {
+        let mut stream = BufWriter::new(&mut self.stream);
+        stream.write("E\n".as_bytes())?;
+        stream.write(error.as_bytes())?;
+        stream.flush()?;
+        Ok(())
+    }
 }

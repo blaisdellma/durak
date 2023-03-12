@@ -13,6 +13,7 @@ pub trait DurakPlayer: Send + Sync {
     fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64>;
     fn lost(&mut self) -> DurakResult<()>;
     fn won(&mut self) -> DurakResult<()>;
+    fn error(&mut self, error: &str) -> DurakResult<()>;
 }
 
 struct Player {
@@ -68,6 +69,46 @@ impl DurakGame {
     }
 
     pub fn run_game(mut self) -> DurakResult<()> {
+        match self.game_loop() {
+            Ok(()) => {
+                // notify players of win/lost status
+                let handles : Vec<_> = std::iter::zip(self.state.players.into_iter(),self.engines.into_iter()).map(|(player,mut engine)| {
+                    std::thread::spawn(move || {
+                        if player.hand.len() == 0 {
+                            debug!("Player {} won ", player.id);
+                            match engine.won() {
+                                Ok(_) => (),
+                                Err(e) => { error!("Error: {}", e); },
+                            }
+                        } else {
+                            debug!("Player {} lost ", player.id);
+                            match engine.lost() {
+                                Ok(_) => (),
+                                Err(e) => { error!("Error: {}", e); },
+                            }
+                        }
+                    })
+                }).collect();
+                for h in handles { h.join().unwrap(); }
+                Ok(())
+            },
+            Err(e) => {
+                let handles : Vec<_> = self.engines.into_iter().map(|mut engine| {
+                    let err_str = format!("{}",e); 
+                    std::thread::spawn(move || {
+                        match engine.error(&err_str) {
+                            Ok(_) => {},
+                            Err(e) => { error!("Error: {}", e); },
+                        }
+                    })
+                }).collect();
+                for h in handles { h.join().unwrap(); }
+                Err(e)
+            },
+        }
+    }
+
+    fn game_loop(&mut self) -> DurakResult<()> {
         while self.state.turn_type != GameTurnType::GameEnd {
             self.state.play_turn(&mut self.engines)?;
             for (i,engine) in self.engines.iter_mut().enumerate() {
@@ -75,27 +116,6 @@ impl DurakGame {
                 engine.observe_move(&to_play_state)?;
             }
         }
-
-        // notify players of win/lost status
-        let handles : Vec<_> = std::iter::zip(self.state.players.into_iter(),self.engines.into_iter()).map(|(player,mut engine)| {
-            std::thread::spawn(move || {
-                if player.hand.len() == 0 {
-                    debug!("Player {} won ", player.id);
-                    match engine.won() {
-                        Ok(_) => (),
-                        Err(e) => { error!("Error: {}", e); },
-                    }
-                } else {
-                    debug!("Player {} lost ", player.id);
-                    match engine.lost() {
-                        Ok(_) => (),
-                        Err(e) => { error!("Error: {}", e); },
-                    }
-                }
-            })
-        }).collect();
-        for h in handles { h.join().unwrap(); }
-
         Ok(())
     }
 }

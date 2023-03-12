@@ -64,6 +64,10 @@ impl<T: DurakPlayer> NetClientDurakPlayer<T> {
                 self.engine.lost()?;
                 return Ok(2);
             },
+            Some("E") => {
+                self.process_query(|player: &mut Self, error_msg: &String| player.engine.error(&error_msg))?;
+                return Ok(3);
+            },
             _ => {},
         }
         Ok(0)

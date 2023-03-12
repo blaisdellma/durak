@@ -5,17 +5,14 @@ use tracing_appender as ta;
 
 use durak_core::*;
 
-mod tuidurakplayer;
-use tuidurakplayer::*;
+mod tui_player;
+use tui_player::*;
 
-mod tui2durakplayer;
-use tui2durakplayer::*;
+mod cli_player;
+use cli_player::*;
 
-mod tui3durakplayer;
-use tui3durakplayer::*;
-
-mod dummydurakplayer;
-use dummydurakplayer::*;
+mod dummy_player;
+use dummy_player::*;
 
 mod durak_net;
 use durak_net::*;
@@ -56,7 +53,7 @@ fn run_game_server() -> DurakResult<()> {
 
 fn run_game_client() -> DurakResult<()> {
     let _guard = init_log("client_log").map_err(|e| { warn!("Log init failed"); e })?;
-    let mut player = NetClientDurakPlayer::new(TUIDurakPlayer::new(0))?;
+    let mut player = NetClientDurakPlayer::new(CliPlayer::new(0))?;
     info!("Connected to game server");
     loop {
         match player.wait()? {
@@ -87,9 +84,8 @@ fn main() {
     match match std::env::args().skip(1).next() {
         Some(arg) if arg == "server" => run_game_server(),
         Some(arg) if arg == "client" => run_game_client(),
-        Some(arg) if arg == "test1" => run_game_test(2,TUIDurakPlayer::new(0)),
-        Some(arg) if arg == "test2" => run_game_test(2,TUINewDurakPlayer::new()),
-        Some(arg) if arg == "test3" => run_game_test(2,TUISuperNewDurakPlayer::new()),
+        Some(arg) if arg == "test_cli" => run_game_test(2,CliPlayer::new(0)),
+        Some(arg) if arg == "test_tui" => run_game_test(2,TuiPlayer::new()),
         _ => Err("Command option not recognized".into()),
     } {
         Ok(()) => {},
