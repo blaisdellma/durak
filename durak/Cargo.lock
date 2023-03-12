@@ -132,6 +132,19 @@ version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
  "cursive",
+ "durak-core",
+ "rand",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "durak-core"
+version = "0.1.0"
+dependencies = [
  "rand",
  "serde",
  "serde_json",

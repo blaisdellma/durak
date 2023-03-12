@@ -1,4 +1,4 @@
-use durak::{*,card::*,toplaystate::*};
+use durak_core::{*,card::*,toplaystate::*};
 
 pub struct DummyDurakPlayer {
     id: u64,

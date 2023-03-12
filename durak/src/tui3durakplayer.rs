@@ -11,7 +11,7 @@ use cursive::utils::markup::StyledString;
 use cursive::traits::{Resizable,Nameable};
 use cursive::views::{HideableView,DummyView,TextView,LinearLayout,Dialog,PaddedView,ResizedView,EditView,DialogFocus};
 
-use durak::{*,card::*,toplaystate::*};
+use durak_core::{*,card::*,toplaystate::*};
 
 pub struct TUISuperNewDurakPlayer {
     id: u64,
