@@ -1,11 +1,15 @@
-#![allow(dead_code)]
+//! The basics.
+
 use serde::{Serialize,Deserialize};
 use std::fmt;
+use std::convert::TryFrom;
 use rand::Rng;
 
-use crate::*;
+use crate::prelude::*;
 
+/// An enum to denote card suits.
 #[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
+#[allow(missing_docs)]
 pub enum Suit {
     Spades = 0,
     Diamonds = 1,
@@ -37,7 +41,10 @@ impl TryFrom<usize> for Suit {
     }
 }
 
+/// An enum to denote card ranks.
+/// Only includes sixes to Aces.
 #[derive(PartialEq,Copy,Clone,PartialOrd,Serialize,Deserialize)]
+#[allow(missing_docs)]
 pub enum Rank {
     Ace = 9,
     King = 8,
@@ -84,9 +91,12 @@ impl TryFrom<usize> for Rank {
     }
 }
 
+/// A single card.
 #[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
 pub struct Card {
+    /// The card's rank.
     pub rank: Rank,
+    /// The card's suit.
     pub suit: Suit,
 }
 
@@ -119,24 +129,28 @@ impl TryFrom<Card> for usize {
     }
 }
 
-pub fn hand_fmt(hand: &Vec<Card>) -> String {
+/// Creates a text representation of a hand of cards.
+pub fn hand_fmt(hand: &[Card]) -> String {
     hand.iter().map(|c| format!("{:>4}",format!("{}",c))).collect::<String>()
 }
 
-pub struct Deck<'a, R: Rng> {
+/// A shuffled deck of cards.
+pub(crate) struct Deck<'a, R: Rng> {
     cards: Vec<Card>,
     rng: &'a mut R,
 }
 
 impl<'a, R: Rng> Deck<'a, R> {
-    pub fn init(rng: &'a mut R) -> DurakResult<Self> {
+    /// Initializes the deck to contain all 36 cards in the durak deck.
+    pub(crate) fn init(rng: &'a mut R) -> DurakResult<Self> {
         Ok(Deck {
             cards: (0..36).map(|i| Card::try_from(i)).collect::<Result<Vec<Card>,_>>()?,
             rng: rng,
         })
     }
 
-    pub fn get_trump(&mut self) -> DurakResult<Suit> {
+    /// Randomly chooses the trump suit.
+    pub(crate) fn get_trump(&mut self) -> DurakResult<Suit> {
         Ok(match self.rng.gen_range(0..4usize) {
             0 => Suit::Hearts,
             1 => Suit::Clubs,
@@ -148,7 +162,9 @@ impl<'a, R: Rng> Deck<'a, R> {
         })
     }
 
-    pub fn deal_cards(&mut self, ncards: usize, hand: &mut Vec<Card>, trump: Suit) -> DurakResult<()> {
+    /// Deals a set number of cards from the deck into a hand.
+    /// Also sorts the cards in the hand with preference given to the trump suit.
+    pub(crate) fn deal_cards(&mut self, ncards: usize, hand: &mut Vec<Card>, trump: Suit) -> DurakResult<()> {
         if ncards > self.cards.len() { return Err("Not enough cards in deck".into()); }
         for _ in 0..ncards {
             let k : usize = self.rng.gen_range(0..self.cards.len());
@@ -159,12 +175,13 @@ impl<'a, R: Rng> Deck<'a, R> {
         Ok(())
     }
 
-    pub fn all_cards_left(self) -> Vec<Card> {
+    /// Dumps the remaining cards in the deck.
+    pub(crate) fn all_cards_left(self) -> Vec<Card> {
         self.cards
     }
 }
 
-pub fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) {
+pub(crate) fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) {
     let mut ind = 0;
     while ind < v_from.len() && v_from[ind] != *card { ind += 1};
     if ind < v_from.len() {
@@ -172,6 +189,7 @@ pub fn transfer_card(v_from: &mut Vec<Card>, v_to: &mut Vec<Card>, card: &Card) 
     }
 }
 
+/// Sorts cards with preference given to the trump suit.
 pub fn sort_cards(cards: &mut Vec<Card>, trump: Suit) {
     cards.sort_by_key(|&card| {
         let val = usize::try_from(card).unwrap();

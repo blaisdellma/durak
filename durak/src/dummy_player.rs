@@ -1,4 +1,4 @@
-use durak_core::*;
+use durak_core::prelude::*;
 
 pub struct DummyDurakPlayer {
     id: u64,

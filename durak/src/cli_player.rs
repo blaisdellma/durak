@@ -1,7 +1,7 @@
 use std::io::Write;
 use tracing::{warn};
 
-use durak_core::*;
+use durak_core::prelude::*;
 
 fn print_cards(cards: &[Card], trump: Suit) {
     for c in cards {

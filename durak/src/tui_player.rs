@@ -11,7 +11,7 @@ use cursive::utils::markup::StyledString;
 use cursive::traits::{Resizable,Nameable};
 use cursive::views::{HideableView,DummyView,TextView,LinearLayout,Dialog,PaddedView,ResizedView,EditView,DialogFocus};
 
-use durak_core::*;
+use durak_core::prelude::*;
 
 pub struct TuiPlayer {
     id: u64,

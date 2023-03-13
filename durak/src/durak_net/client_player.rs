@@ -4,7 +4,7 @@ use std::io::{Write,BufWriter,Read,BufRead,BufReader};
 // use tracing::{info};
 use serde::{Serialize,Deserialize};
 
-use durak_core::{DurakPlayer,DurakResult};
+use durak_core::prelude::*;
 
 pub struct NetClientDurakPlayer<T: DurakPlayer> {
     engine: T,

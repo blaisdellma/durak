@@ -1,24 +1,46 @@
+//! Limited game state and player information made available to players on their turn.
+
 use std::borrow::Cow;
 use serde::{Serialize,Deserialize};
 
-use crate::*;
+use crate::prelude::*;
 
+/// A struct containing the information about a player in the game that is available to the other
+/// players in the game.
 #[derive(Serialize,Deserialize,Copy,Clone)]
 pub struct PlayerInfo {
+    /// Players unique ID.
     pub id: u64,
+    /// Number of cards in player's hand.
     pub hand_len: usize,
 }
 
-// limited game state available to players on their turn
+/// A struct containing the limited game state information available to players.
 #[derive(Serialize,Deserialize,Clone)]
 pub struct ToPlayState<'a> {
+    /// Trump suit.
     pub trump: Suit,
+
+    /// Played attack cards.
     pub attack_cards: Cow<'a,Vec<Card>>,
+
+    /// Played defense cards.
     pub defense_cards: Cow<'a,Vec<Card>>,
+
+    /// Player's current hand.
     pub hand: Cow<'a,Vec<Card>>,
+
+    /// All player's info, including this player.
     pub player_info: Vec<PlayerInfo>,
+
+    /// Index to `player_info` for primary attacker for this round.
     pub attacker: usize,
+
+    /// Index to `player_info` for defender for this round.
     pub defender: usize,
+
+    /// Index to `player_info` for player whose turn it currently is. Will be this player unless
+    /// passed to [`DurakPlayer::observe_move()`].
     pub to_play: usize,
 }
 
@@ -42,6 +64,7 @@ fn beats_card(defense: &Card, attack: &Card, trump: &Suit) -> bool {
 // to ensure that only valid moves are submitted
 impl ToPlayState<'_> {
 
+    /// Converts all internal Cow's to Owned variant.
     pub fn to_static(&self) -> ToPlayState<'static> {
         ToPlayState {
             trump: self.trump,
@@ -55,6 +78,7 @@ impl ToPlayState<'_> {
         }
     }
 
+    /// Validates an attack move
     pub fn validate_attack(&self, action: &Option<Card>) -> DurakResult<()> {
         if self.to_play == self.defender { return Err("Attack Invalid: Defender's turn".into()); }
         match action {
@@ -77,6 +101,7 @@ impl ToPlayState<'_> {
         Ok(())
     }
 
+    /// Validates a defend move
     pub fn validate_defense(&self, action: &Option<Card>) -> DurakResult<()> {
         if self.to_play != self.defender { return Err("Defense Invalid: Not defender's turn".into()); }
         match action {
@@ -95,6 +120,7 @@ impl ToPlayState<'_> {
         Ok(())
     }
 
+    /// Validates a pile on
     pub fn validate_pile_on(&self, cards: &[Card]) -> DurakResult<()> {
         if self.to_play == self.defender { return Err("Pile On Invalid: Not attackers' turn".into()); }
         for pile_on_card in cards {

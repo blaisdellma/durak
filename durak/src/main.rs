@@ -3,7 +3,7 @@ use tracing::{info,debug,warn,error,Level};
 use tracing_subscriber as ts;
 use tracing_appender as ta;
 
-use durak_core::*;
+use durak_core::prelude::*;
 
 mod tui_player;
 use tui_player::*;

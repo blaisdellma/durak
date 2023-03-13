@@ -1,18 +1,40 @@
+//! The core game engine.
+
 use std::borrow::Cow;
 use rand::Rng;
 use tracing::{debug,error};
 
-use crate::*;
+use crate::prelude::*;
+use crate::card::{transfer_card, Deck};
 
+/// Trait defining player behavior.
+/// Implement this when making a player client.
 pub trait DurakPlayer: Send + Sync {
-// pub trait DurakPlayer {
+    /// Plays an attack turn.
     fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+
+    /// Plays a defense turn.
     fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+
+    /// Plays a pile on turn.
     fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>>;
+
+    /// Not playing a turn, but is sent whenever another player plays a turn to update player
+    /// client game state.
     fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()>;
+
+    /// Returns a unique ID for the player.
+    /// [`PlayerInfo`] contains all the other player's IDs. No duplicates allowed.
     fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64>;
+
+    /// A notification that the player has lost the game.
     fn lost(&mut self) -> DurakResult<()>;
+
+    /// A notification that the player has won the game.
+    /// Or rather, just not lost the game.
     fn won(&mut self) -> DurakResult<()>;
+
+    /// A notification that there has been some error and the game engine is shutting down.
     fn error(&mut self, error: &str) -> DurakResult<()>;
 }
 
@@ -30,7 +52,7 @@ enum GameTurnType {
     GameEnd,
 }
 
-pub struct GameState {
+struct GameState {
     trump: Suit,
     players: Vec<Player>,
     draw_pile: Vec<Card>,
@@ -43,12 +65,14 @@ pub struct GameState {
     turn_type: GameTurnType,
 }
 
+/// The durak game engine.
 pub struct DurakGame {
     state: GameState,
     engines: Vec<Box<dyn DurakPlayer>>,
 }
 
 impl DurakGame {
+    /// Create a new game.
     pub fn new() -> Self {
         DurakGame {
             state: GameState::new(),
@@ -56,6 +80,8 @@ impl DurakGame {
         }
     }
 
+    /// Add a player to the game. Will call [`DurakPlayer::get_id()`] so make sure player client is
+    /// initialized first.
     pub fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> DurakResult<()> {
         let id = engine.get_id(&get_player_info(&self.state))?;
         self.state.add_player(id)?;
@@ -64,10 +90,13 @@ impl DurakGame {
         Ok(())
     }
 
+    /// Initialize the game. Deals cards to players and decides what the trump suit is based on
+    /// RNG.
     pub fn init<R: Rng>(&mut self, rng: &mut R) -> DurakResult<()> {
         self.state.init(rng)
     }
 
+    /// Start the game.
     pub fn run_game(mut self) -> DurakResult<()> {
         match self.game_loop() {
             Ok(()) => {

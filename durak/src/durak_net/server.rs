@@ -2,7 +2,7 @@ use std::net::TcpListener;
 
 use tracing::{info};
 
-use durak_core::DurakResult;
+use durak_core::prelude::*;
 use crate::NetServerDurakPlayer;
 
 pub struct DurakServer {
