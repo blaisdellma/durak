@@ -1,0 +1,2 @@
+[workspace]
+members = ["durak-core","durak-players","durak"]
