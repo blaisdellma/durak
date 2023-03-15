@@ -4,18 +4,7 @@ use tracing_subscriber as ts;
 use tracing_appender as ta;
 
 use durak_core::prelude::*;
-
-mod tui_player;
-use tui_player::*;
-
-mod cli_player;
-use cli_player::*;
-
-mod dummy_player;
-use dummy_player::*;
-
-mod durak_net;
-use durak_net::*;
+use durak_players::*;
 
 fn init_log(prefix: &str) -> DurakResult<ta::non_blocking::WorkerGuard> {
     let log_dir = std::env::var("CARGO_MANIFEST_DIR")?;
