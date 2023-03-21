@@ -28,14 +28,21 @@ pub trait DurakPlayer: Send + Sync {
     fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64>;
 
     /// A notification that the player has lost the game.
-    fn lost(&mut self) -> DurakResult<()>;
+    fn lost(&mut self) -> DurakResult<()> {
+        Ok(())
+    }
 
     /// A notification that the player has won the game.
     /// Or rather, just not lost the game.
-    fn won(&mut self) -> DurakResult<()>;
+    fn won(&mut self) -> DurakResult<()> {
+        Ok(())
+    }
 
     /// A notification that there has been some error and the game engine is shutting down.
-    fn error(&mut self, error: &str) -> DurakResult<()>;
+    fn error(&mut self, error: &str) -> DurakResult<()> {
+        _ = error;
+        Ok(())
+    }
 }
 
 struct Player {
