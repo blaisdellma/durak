@@ -194,6 +194,11 @@ impl DurakPlayer for CliPlayer {
         Ok(())
     }
 
+    fn message(&mut self, msg: &str) -> DurakResult<()> {
+        println!("Message from game engine: {}",msg);
+        Ok(())
+    }
+
     fn error(&mut self, error: &str) -> DurakResult<()> {
         println!("I'm sorry, there was an error.");
         println!("Error: {}",error);
