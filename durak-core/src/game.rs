@@ -5,7 +5,7 @@ use rand::Rng;
 use tracing::{debug,error};
 
 use crate::prelude::*;
-use crate::card::{transfer_card, Deck};
+use crate::card::transfer_card;
 
 /// Trait defining player behavior.
 /// Implement this when making a player client.
@@ -155,7 +155,7 @@ impl GameState {
             trump: Suit::Hearts,
             players: Vec::new(),
             // engines: Vec::new(),
-            draw_pile: Vec::new(),
+            draw_pile: Vec::with_capacity(36),
             attack_cards: Vec::new(),
             defense_cards: Vec::new(),
             discarded_cards: Vec::new(),
@@ -170,7 +170,7 @@ impl GameState {
         if self.players.iter().any(|player| player.id == id) { return Err("Duplicate player id".into()); }
         if self.players.len() >= 6 { return Err("Cannot add more than 6 players".into()); }
         self.players.push(Player {
-            id: id,
+            id,
             hand: Vec::new(),
         });
         Ok(())
@@ -184,13 +184,23 @@ impl GameState {
             return Err("Can't have more than 6 players".into());
         }
 
-        let mut deck = Deck::init(rng)?;
-        self.trump = deck.get_trump()?;
-        debug!("Trump suit is {}",self.trump);
-        for player in &mut self.players {
-            deck.deal_cards(6,&mut player.hand,self.trump)?;
+        // shuffle deck
+        let mut in_order_cards = (0..36).map(|i| Card::try_from(i)).collect::<Result<Vec<Card>,_>>()?;
+        for _ in 0..36 {
+            let index = rng.gen_range(0..in_order_cards.len());
+            self.draw_pile.push(in_order_cards.swap_remove(index));
         }
-        self.draw_pile.extend(deck.all_cards_left());
+
+        // deal cards
+        for _ in 0..6 {
+            for hand in self.players.iter_mut().map(|p| &mut p.hand) {
+                hand.push(self.draw_pile.pop().unwrap());
+            }
+        }
+
+        // determine trump suit
+        self.trump = self.draw_pile[0].suit;
+        debug!("Trump suit is {}",self.trump);
 
         for player in &self.players { debug!("Player # {} has cards: {}",player.id,hand_fmt(&player.hand)); }
 
