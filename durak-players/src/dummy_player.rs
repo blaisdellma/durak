@@ -48,22 +48,6 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(Vec::new())
     }
 
-    fn observe_move(&mut self, _state: &ToPlayState) -> DurakResult<()> {
-        Ok(())
-    }
-
-    fn won(&mut self) -> DurakResult<()> {
-        Ok(())
-    }
-
-    fn lost(&mut self) -> DurakResult<()> {
-        Ok(())
-    }
-
-    fn error(&mut self, _error: &str) -> DurakResult<()> {
-        Ok(())
-    }
-
     fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
         for info in player_info {
             if self.id <= info.id {
