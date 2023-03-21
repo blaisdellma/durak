@@ -71,6 +71,14 @@ impl DurakPlayer for NetServerDurakPlayer {
         Ok(())
     }
 
+    fn message(&mut self, msg: &str) -> DurakResult<()> {
+        let mut stream = BufWriter::new(&mut self.stream);
+        stream.write("M\n".as_bytes())?;
+        stream.write(msg.as_bytes())?;
+        stream.flush()?;
+        Ok(())
+    }
+
     fn error(&mut self, error: &str) -> DurakResult<()> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("E\n".as_bytes())?;
