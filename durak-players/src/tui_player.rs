@@ -217,6 +217,29 @@ impl DurakPlayer for TuiPlayer {
         Ok(())
     }
 
+    fn message(&mut self, msg: &str) -> DurakResult<()> {
+        let (sender,receiver) = bounded::<()>(0);
+        let msg = msg.to_owned();
+        self.tui.send(Box::new(move |s: &mut Cursive| {
+            s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
+                hideable.hide();
+            });
+            s.call_on_name("message", | hideable: &mut HideableView<PaddedView<LinearLayout>> | {
+                let layout = hideable.get_inner_mut().get_inner_mut();
+                layout.add_child(TextView::new(format!("Message from game engine: {}",msg)));
+                hideable.unhide();
+            });
+            s.add_global_callback(cursive::event::Key::Enter, move |s: &mut Cursive| {
+                s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
+                    hideable.unhide();
+                });
+                sender.send(()).unwrap();
+            });
+        }))?;
+        self.test_recv(receiver)?;
+        Ok(())
+    }
+
     fn error(&mut self, error: &str) -> DurakResult<()> {
         let (sender,receiver) = bounded::<()>(0);
         let error = error.to_owned();
@@ -299,6 +322,7 @@ fn setup(siv: &mut CursiveRunnable) {
     setup_msg(siv,vec!["Congratulations!","YOU WON!!!"],"won");
     setup_msg(siv,vec!["Sorry","You lost"],"lost");
     setup_msg(siv,vec![],"error");
+    setup_msg(siv,vec![],"message");
     setup_scaffold(siv);
     setup_id(siv);
 }
