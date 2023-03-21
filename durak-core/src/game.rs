@@ -38,6 +38,12 @@ pub trait DurakPlayer: Send + Sync {
         Ok(())
     }
 
+    /// Any non-error notification to the player from the game engine
+    fn message(&mut self, msg: &str) -> DurakResult<()> {
+        _ = msg;
+        Ok(())
+    }
+
     /// A notification that there has been some error and the game engine is shutting down.
     fn error(&mut self, error: &str) -> DurakResult<()> {
         _ = error;
