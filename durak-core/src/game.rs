@@ -21,7 +21,10 @@ pub trait DurakPlayer: Send + Sync {
 
     /// Not playing a turn, but is sent whenever another player plays a turn to update player
     /// client game state.
-    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()>;
+    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+        _ = state;
+        Ok(())
+    }
 
     /// Returns a unique ID for the player.
     /// [`PlayerInfo`] contains all the other player's IDs. No duplicates allowed.
