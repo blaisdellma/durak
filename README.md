@@ -24,7 +24,7 @@ The game is played as a series of rounds where one player defends and the other 
 Each round consists of at maximum 6 attacks and 6 defenses.
 The player to the right of the defender attacks first, then the other players clock-wise from the defender's left.
 When attacking each player can pass or attack as many times as they wish (without going over the limit of 6 total attacks per round).
-The first attacker has precedence when attacking and can preempt any of the other attackers.(\*)
+The first attacker has precedence when attacking and can preempt any of the other attackers.
 The order of precedence continues to flow clock-wise from the defender's left.
 
 The first attack card can be of any suit or rank, but all other attacks are limited to the ranks already played (either attacks or defenses) so far that round.
@@ -45,8 +45,6 @@ The new first attacker is player to the left of the old defender, effectively "s
 
 Regardless of a successful defense or not, at the end of the round cards are dealt to all players with less than 6 cards in their hand.
 The order starts with first attacker and proceeds clock-wise, but the defender is skipped is dealt to last.
-
-(\*) Only at the very beginning of their turn though. Need to change code to reflect this. Oops.
 
 ### Ending the Game:
 

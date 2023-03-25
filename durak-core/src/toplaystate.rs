@@ -33,8 +33,8 @@ pub struct ToPlayState<'a> {
     /// All player's info, including this player.
     pub player_info: Vec<PlayerInfo>,
 
-    /// Index to `player_info` for primary attacker for this round.
-    pub attacker: usize,
+    /// Index to `player_info` for whoever attacked last.
+    pub last_attacker: usize,
 
     /// Index to `player_info` for defender for this round.
     pub defender: usize,
@@ -72,7 +72,7 @@ impl ToPlayState<'_> {
             defense_cards: Cow::Owned(self.defense_cards.clone().into_owned()),
             hand: Cow::Owned(self.hand.clone().into_owned()),
             player_info: self.player_info.clone(),
-            attacker: self.attacker,
+            last_attacker: self.last_attacker,
             defender: self.defender,
             to_play: self.to_play,
         }

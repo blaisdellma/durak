@@ -71,13 +71,15 @@ enum GameTurnType {
 struct GameState {
     trump: Suit,
     players: Vec<Player>,
+    attackers: Vec<usize>, // indices for attackers for current round
+    attackers_passed: Vec<usize>, // indices for attackers who have passed since last attack
     draw_pile: Vec<Card>,
     attack_cards: Vec<Card>,
     defense_cards: Vec<Card>,
     discarded_cards: Vec<Card>,
     defender: usize,
-    attacker: usize,
-    to_play: usize,
+    last_attacker: usize, // the last attacker (used for reference during defense turns)
+    to_play: usize, // whoever's turn it currently is
     turn_type: GameTurnType,
 }
 
@@ -170,13 +172,15 @@ impl GameState {
         GameState {
             trump: Suit::Hearts,
             players: Vec::new(),
-            // engines: Vec::new(),
+            attackers: Vec::new(),
+            attackers_passed: Vec::new(),
             draw_pile: Vec::with_capacity(36),
             attack_cards: Vec::new(),
             defense_cards: Vec::new(),
             discarded_cards: Vec::new(),
             defender: 0usize,
-            attacker: 0usize,
+            // attacker: 0usize,
+            last_attacker: 0usize,
             to_play: 0usize,
             turn_type: GameTurnType::Attack,
         }
@@ -220,11 +224,12 @@ impl GameState {
 
         for player in &self.players { debug!("Player # {} has cards: {}",player.id,hand_fmt(&player.hand)); }
 
-        self.attacker = 0;
+        self.to_play = 0;
         self.defender = 1;
-
-        self.to_play = self.attacker;
         self.turn_type = GameTurnType::Attack;
+
+        self.attackers_passed.clear();
+        self.attackers = (0..self.players.len()).filter(|&ind| ind != self.defender).collect();
 
         Ok(())
     }
@@ -239,11 +244,9 @@ impl GameState {
 
     fn refill_players_hands(&mut self) {
         debug!("Refilling player's hands");
-        self.refill_from_talon(self.attacker);
-        let mut player_ind = (self.attacker + 2 ) % self.players.len();
-        while player_ind != self.attacker {
-            self.refill_from_talon(player_ind);
-            player_ind = (player_ind + 1) % self.players.len();
+        let attackers = self.attackers.clone();
+        for &ind in &attackers {
+            self.refill_from_talon(ind);
         }
         self.refill_from_talon(self.defender);
     }
@@ -255,7 +258,7 @@ impl GameState {
         for player in &self.players {
             debug!("Player # {} has cards: {}",player.id,player.hand.iter().map(|c| format!("{:>4}",format!("{}",c))).collect::<String>());
         }
-        debug!("Player # {} is the attacker",self.players[self.attacker].id);
+        debug!("Player # {} is the attacker",self.players[self.attackers[0]].id);
         debug!("Player # {} is the defender",self.players[self.defender].id);
         debug!("Player # {} is playing",self.players[self.to_play].id);
 
@@ -281,22 +284,22 @@ impl GameState {
                         debug!("Player has selected {}",attack_card);
                         to_play_state.validate_attack(&attack)?;
                         transfer_card(&mut self.players[self.to_play].hand,&mut self.attack_cards,&attack_card);
+                        self.attackers_passed.clear();
+                        self.last_attacker = self.to_play;
                         self.to_play = self.defender;
                         self.turn_type = GameTurnType::Defense;
                     },
                     None => {
-                        // bump to next player's turn skipping the defender
-                        // if wrapped around to the attacker then the round is over
-                        self.to_play = (self.to_play + 1) % self.players.len();
-                        while self.to_play == self.defender || self.players[self.to_play].hand.len() == 0 {
-                            if self.to_play == self.attacker { break; }
-                            self.to_play = (self.to_play + 1) % self.players.len();
-                        }
-                        if self.to_play == self.attacker {
-                            debug!("Ending round because all attackers passed");
-                            // defender has priority for next round
-                            self.to_play = self.defender;
-                            self.turn_type = GameTurnType::EndRound;
+                        // bump to next attacker's turn, skipping those that have passed since last
+                        // attack move
+                        self.attackers_passed.push(self.to_play);
+                        match self.attackers.iter().filter(|ind| !self.attackers_passed.contains(ind) && self.players[**ind].hand.len() != 0).next() {
+                            Some(&ind) => self.to_play = ind,
+                            None => {
+                                debug!("Ending round because all attackers passed");
+                                self.to_play = self.defender;
+                                self.turn_type = GameTurnType::EndRound;
+                            }
                         }
                     },
                 }
@@ -314,7 +317,8 @@ impl GameState {
                             self.to_play = self.defender;
                             self.turn_type = GameTurnType::EndRound;
                         } else {
-                            self.to_play = self.attacker;
+                            // last attacker has dibs on attacking next
+                            self.to_play = self.last_attacker;
                             self.turn_type = GameTurnType::Attack;
                         }
                     },
@@ -338,6 +342,7 @@ impl GameState {
                         transfer_card(&mut self.players[ind_pile].hand,&mut self.attack_cards,&card);
                     }
                 }
+                // defender is not the first attacker for next round
                 self.to_play = (self.defender + 1) % self.players.len();
                 self.turn_type = GameTurnType::EndRound;
             },
@@ -361,14 +366,19 @@ impl GameState {
                     self.turn_type = GameTurnType::GameEnd;
                     return Ok(());
                 }
-                while self.players[self.to_play].hand.len() == 0 {
+
+                // select players with cards left
+                self.attackers = (0..self.players.len()).filter(|ind| self.players[*ind].hand.len() != 0).collect();
+                // find next in order
+                while !self.attackers.contains(&self.to_play) {
                     self.to_play = (self.to_play + 1) % self.players.len();
                 }
-                self.attacker = self.to_play;
-                self.defender = (self.attacker + 1) % self.players.len();
-                while self.players[self.defender].hand.len() == 0 {
-                    self.defender = (self.defender + 1) % self.players.len();
-                }
+                // rotate so they're first in line
+                let offset = self.attackers.iter().enumerate().filter(|(_,ind)| **ind == self.to_play).next().unwrap().0;
+                self.attackers.rotate_left(offset);
+                // second in line is defender
+                self.defender = self.attackers[1];
+                self.attackers.remove(1);
                 self.turn_type = GameTurnType::Attack;
             },
             GameTurnType::GameEnd => {},
@@ -387,12 +397,8 @@ fn gen_to_play_state_w_hand(state: &GameState, hand_ind: usize) -> ToPlayState {
         defense_cards: Cow::Borrowed(&state.defense_cards),
         hand: Cow::Borrowed(&state.players[hand_ind].hand),
         trump: state.trump,
-        // player_info: state.players.iter()
-        //     .map(|player| (player.hand.len(),player.id)).collect(),
-        // player_info: state.players.iter()
-        //     .map(|player| PlayerInfo { id: player.id, hand_len: player.hand.len() } ).collect(),
         player_info: get_player_info(state),
-        attacker: state.attacker,
+        last_attacker: state.last_attacker,
         defender: state.defender,
         to_play: state.to_play,
     }
