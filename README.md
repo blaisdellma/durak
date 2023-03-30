@@ -6,8 +6,8 @@ The game is played with a subset of a standard 52 card deck, using only the card
 
 This repo includes the following Rust crates:
 - `durak-core`: The core game engine and the `DurakPlayer` trait which defines how the players interact with the game engine.
-- `durak-players`: Some implementations of `DurakPlayer` including both a CLI and TUI interface and a basic network middleware.
-- `durak`: Server/client binaries for playing a game of durak.
+- `durak-players`: Some implementations of `DurakPlayer` including both a CLI and TUI client and a basic network middleware.
+- `durak`: Server/client for playing a game of durak.
 - `durak-ml`: (Coming soon) A ML based computer opponent implementation of `DurakPlayer`.
 
 ## Rules:
