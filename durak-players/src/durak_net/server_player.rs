@@ -1,6 +1,8 @@
 use std::net::TcpStream;
 use std::io::{Write,BufWriter,BufRead,BufReader};
 
+use anyhow::Result;
+
 // use tracing::{info};
 use serde::{Serialize,Deserialize};
 
@@ -15,11 +17,11 @@ impl NetServerDurakPlayer {
     pub fn new(stream: TcpStream) -> Self {
         NetServerDurakPlayer {
             id: 0,
-            stream: stream,
+            stream,
         }
     }
 
-    fn query_client<A: Serialize, B: for<'b> Deserialize<'b>>(&mut self, sig: &str, data: &A) -> DurakResult<B> {
+    fn query_client<A: Serialize, B: for<'b> Deserialize<'b>>(&mut self, sig: &str, data: &A) -> Result<B> {
         let json = serde_json::to_string(data)?;
         let content = json.as_bytes();
         let mut stream = BufWriter::new(&mut self.stream);
@@ -37,41 +39,41 @@ impl NetServerDurakPlayer {
 }
 
 impl DurakPlayer for NetServerDurakPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         self.query_client("A\n",state)
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         self.query_client("D\n",state)
     }
 
-    fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>> {
+    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
         self.query_client("P\n",state)
     }
 
-    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         self.query_client("O\n",state)
     }
 
-    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
+    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64> {
         self.query_client("I\n",player_info)
     }
 
-    fn won(&mut self) -> DurakResult<()> {
+    fn won(&mut self) -> Result<()> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("W\n".as_bytes())?;
         stream.flush()?;
         Ok(())
     }
 
-    fn lost(&mut self) -> DurakResult<()> {
+    fn lost(&mut self) -> Result<()> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("L\n".as_bytes())?;
         stream.flush()?;
         Ok(())
     }
 
-    fn message(&mut self, msg: &str) -> DurakResult<()> {
+    fn message(&mut self, msg: &str) -> Result<()> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("M\n".as_bytes())?;
         stream.write(msg.as_bytes())?;
@@ -79,7 +81,7 @@ impl DurakPlayer for NetServerDurakPlayer {
         Ok(())
     }
 
-    fn error(&mut self, error: &str) -> DurakResult<()> {
+    fn error(&mut self, error: &str) -> Result<()> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("E\n".as_bytes())?;
         stream.write(error.as_bytes())?;

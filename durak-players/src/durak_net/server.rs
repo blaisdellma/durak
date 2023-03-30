@@ -1,8 +1,9 @@
 use std::net::TcpListener;
 
-use tracing::{info};
+use anyhow::Result;
 
-use durak_core::prelude::*;
+use tracing::info;
+
 use crate::NetServerDurakPlayer;
 
 pub struct DurakServer {
@@ -11,14 +12,14 @@ pub struct DurakServer {
 }
 
 impl DurakServer {
-    pub fn new() -> DurakResult<Self> {
+    pub fn new() -> Result<Self> {
         Ok(DurakServer {
             listener: TcpListener::bind("127.0.0.1:8080")?,
             players: Vec::new(),
         })
     }
 
-    pub fn wait_connection(&mut self) -> DurakResult<()> {
+    pub fn wait_connection(&mut self) -> Result<()> {
         match self.listener.accept() {
             Ok((socket,addr)) => {
                 info!("Connection at {}",addr);
@@ -29,7 +30,7 @@ impl DurakServer {
         Ok(())
     }
 
-    pub fn get_players(self) -> DurakResult<Vec<NetServerDurakPlayer>> {
+    pub fn get_players(self) -> Result<Vec<NetServerDurakPlayer>> {
         Ok(self.players)
     }
 }

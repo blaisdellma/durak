@@ -1,6 +1,8 @@
 use std::net::TcpStream;
 use std::io::{Write,BufWriter,Read,BufRead,BufReader};
 
+use anyhow::Result;
+
 // use tracing::{info};
 use serde::{Serialize,Deserialize};
 
@@ -12,7 +14,7 @@ pub struct NetClientDurakPlayer<T: DurakPlayer> {
 }
 
 impl<T: DurakPlayer> NetClientDurakPlayer<T> {
-    fn process_query<A: for<'a> Deserialize<'a>,B: Serialize,F: Fn(&mut Self,&A)->DurakResult<B>>(&mut self, func: F) -> DurakResult<()> {
+    fn process_query<A: for<'a> Deserialize<'a>,B: Serialize,F: Fn(&mut Self,&A)->Result<B>>(&mut self, func: F) -> Result<()> {
         let mut stream = BufReader::new(&mut self.stream);
         let mut buf = Vec::new();
         stream.read_to_end(&mut buf)?;
@@ -28,14 +30,14 @@ impl<T: DurakPlayer> NetClientDurakPlayer<T> {
 }
 
 impl<T: DurakPlayer> NetClientDurakPlayer<T> {
-    pub fn new(durak_player: T) -> DurakResult<Self> {
+    pub fn new(durak_player: T) -> Result<Self> {
         Ok(NetClientDurakPlayer {
             engine: durak_player,
             stream: TcpStream::connect("127.0.0.1:8080")?,
         })
     }
 
-    pub fn wait(&mut self) -> DurakResult<usize> {
+    pub fn wait(&mut self) -> Result<usize> {
         let mut stream = BufReader::new(&mut self.stream);
         let mut data = String::new();
         let _ = stream.read_line(&mut data)?;

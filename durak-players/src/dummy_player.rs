@@ -1,5 +1,7 @@
 use durak_core::prelude::*;
 
+use anyhow::Result;
+
 pub struct DummyDurakPlayer {
     id: u64,
     wait: u64,
@@ -23,7 +25,7 @@ impl DummyDurakPlayer {
 }
 
 impl DurakPlayer for DummyDurakPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         self.wait();
         for &card in state.hand.iter() {
             if state.validate_attack(&Some(card)).is_ok() {
@@ -33,7 +35,7 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(None)
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         self.wait();
         for &card in state.hand.iter() {
             if state.validate_defense(&Some(card)).is_ok() {
@@ -43,12 +45,12 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(None)
     }
 
-    fn pile_on(&mut self, _state: &ToPlayState) -> DurakResult<Vec<Card>> {
+    fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
         self.wait();
         Ok(Vec::new())
     }
 
-    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
+    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64> {
         for info in player_info {
             if self.id <= info.id {
                 self.id = info.id + 1;

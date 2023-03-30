@@ -1,5 +1,7 @@
 use std::any::Any;
 
+use anyhow::{anyhow,bail,Result};
+
 use tracing::{debug,error};
 
 use crossbeam_channel::unbounded;
@@ -45,12 +47,12 @@ impl TuiPlayer {
         let tui = receiver.recv().unwrap();
         TuiPlayer {
             id: 0,
-            tui: tui,
+            tui,
             handle: Some(handle),
         }
     }
 
-    fn test_recv<T>(&mut self, receiver: Receiver<T>) -> DurakResult<T> {
+    fn test_recv<T>(&mut self, receiver: Receiver<T>) -> Result<T> {
         debug!("test recv");
         let thing = match receiver.recv() {
             Ok(x) => x,
@@ -63,18 +65,18 @@ impl TuiPlayer {
                     s.quit();
                 }),std::time::Duration::from_millis(10000)).unwrap();
                 eprintln!("ERROR!");
-                return Err(format!("Receiver error: {}" ,e).into());
+                bail!("Receiver error: {}" ,e);
             },
         };
         Ok(thing)
     }
 
-    fn end(&mut self) -> DurakResult<()> {
+    fn end(&mut self) -> Result<()> {
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.quit();
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         match self.handle.take() {
-            Some(h) => h.join().map_err(|_| "Join Error".into()),
+            Some(h) => h.join().map_err(|e| anyhow!("Join Error: {:?}",e)),
             None => Ok(()),
         }
     }
@@ -82,13 +84,13 @@ impl TuiPlayer {
 }
 
 impl DurakPlayer for TuiPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         let (sender,receiver) = bounded::<Option<Card>>(0);
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         loop {
             debug!("loop");
             match self.test_recv(receiver.clone()) {
@@ -106,13 +108,13 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         let (sender,receiver) = bounded::<Option<Card>>(0);
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         loop {
             match self.test_recv(receiver.clone()) {
                 Ok(Some(card)) => {
@@ -127,21 +129,21 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn pile_on(&mut self, _state: &ToPlayState) -> DurakResult<Vec<Card>> {
+    fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
         Ok(Vec::new())
     }
 
-    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         let (sender,_receiver) = unbounded::<()>();
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
             update_game_state(s,&static_state,id,sender);
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         Ok(())
     }
 
-    fn get_id(&mut self, _player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
+    fn get_id(&mut self, _player_info: &Vec<PlayerInfo>) -> Result<u64> {
         let player_info = _player_info.clone();
         let (sender,receiver) = bounded::<u64>(0);
         self.tui.send(Box::new(move |s| {
@@ -172,14 +174,14 @@ impl DurakPlayer for TuiPlayer {
                 hideable.unhide();
             });
             s.focus_name("id").unwrap();
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
 
         let id = self.test_recv(receiver)?;
         self.id = id;
         Ok(id)
     }
 
-    fn won(&mut self) -> DurakResult<()> {
+    fn won(&mut self) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -191,14 +193,14 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         self.test_recv(receiver)?;
         self.end()?;
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
         Ok(())
     }
 
-    fn lost(&mut self) -> DurakResult<()> {
+    fn lost(&mut self) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -210,14 +212,14 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         self.test_recv(receiver)?;
         self.end()?;
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
         Ok(())
     }
 
-    fn message(&mut self, msg: &str) -> DurakResult<()> {
+    fn message(&mut self, msg: &str) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         let msg = msg.to_owned();
         self.tui.send(Box::new(move |s: &mut Cursive| {
@@ -235,12 +237,12 @@ impl DurakPlayer for TuiPlayer {
                 });
                 sender.send(()).unwrap();
             });
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         self.test_recv(receiver)?;
         Ok(())
     }
 
-    fn error(&mut self, error: &str) -> DurakResult<()> {
+    fn error(&mut self, error: &str) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         let error = error.to_owned();
         self.tui.send(Box::new(move |s: &mut Cursive| {
@@ -255,7 +257,7 @@ impl DurakPlayer for TuiPlayer {
             s.add_global_callback(cursive::event::Key::Enter, move |_s: &mut Cursive| {
                 sender.send(()).unwrap();
             });
-        }))?;
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         self.test_recv(receiver)?;
         self.end()?;
         Ok(())

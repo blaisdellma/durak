@@ -1,5 +1,7 @@
 use std::io::Write;
-use tracing::{warn};
+
+use anyhow::{anyhow,Result};
+use tracing::warn;
 
 use durak_core::prelude::*;
 
@@ -94,19 +96,19 @@ impl CliPlayer {
         println!("");
     }
 
-    fn get_input<T: std::str::FromStr<Err=std::num::ParseIntError>>(&self) -> DurakResult<T> {
+    fn get_input<T: std::str::FromStr<Err=std::num::ParseIntError>>(&self) -> Result<T> {
         print!("Your move:  ");
         std::io::stdout().flush()?;
 
         let mut buf = String::new();
         std::io::stdin().read_line(&mut buf)?;
         let buf = buf.trim_end_matches(char::is_whitespace);
-        buf.parse().map_err(|e| format!("{:?}",e).into())
+        buf.parse().map_err(|e| anyhow!("{:?}",e))
     }
 }
 
 impl DurakPlayer for CliPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are attacking");
         self.display_game_state(state);
@@ -127,7 +129,7 @@ impl DurakPlayer for CliPlayer {
 
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are defending");
         self.display_game_state(state);
@@ -143,7 +145,7 @@ impl DurakPlayer for CliPlayer {
         }
     }
 
-    fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>> {
+    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are piling on");
         self.display_game_state(state);
@@ -178,35 +180,35 @@ impl DurakPlayer for CliPlayer {
         }
     }
 
-    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         println!("Player ID: {}", self.id);
         self.display_game_state(state);
         Ok(())
     }
 
-    fn won(&mut self) -> DurakResult<()> {
+    fn won(&mut self) -> Result<()> {
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
         Ok(())
     }
 
-    fn lost(&mut self) -> DurakResult<()> {
+    fn lost(&mut self) -> Result<()> {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
         Ok(())
     }
 
-    fn message(&mut self, msg: &str) -> DurakResult<()> {
+    fn message(&mut self, msg: &str) -> Result<()> {
         println!("Message from game engine: {}",msg);
         Ok(())
     }
 
-    fn error(&mut self, error: &str) -> DurakResult<()> {
+    fn error(&mut self, error: &str) -> Result<()> {
         println!("I'm sorry, there was an error.");
         println!("Error: {}",error);
         println!("The game is over now.");
         Ok(())
     }
 
-    fn get_id(&mut self,player_info: &Vec<PlayerInfo>) -> DurakResult<u64> {
+    fn get_id(&mut self,player_info: &Vec<PlayerInfo>) -> Result<u64> {
         println!("Player List:");
         for info in player_info {
             println!("Player {}",info.id);
