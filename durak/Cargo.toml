@@ -10,6 +10,9 @@ default-run = "durak"
 durak-core = { path = "../durak-core" }
 durak-players = { path = "../durak-players" }
 
+# for errors
+anyhow="1.0"
+
 # for game initialization
 rand="0.8.5"
 

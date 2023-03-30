@@ -1,11 +1,11 @@
+use anyhow::Result;
 use tracing::{info,debug,warn,Level};
 use tracing_subscriber as ts;
 use tracing_appender as ta;
 
-use durak_core::prelude::*;
 use durak_players::*;
 
-fn init_log(prefix: &str) -> DurakResult<ta::non_blocking::WorkerGuard> {
+fn init_log(prefix: &str) -> Result<ta::non_blocking::WorkerGuard> {
     let log_dir = std::env::var("CARGO_MANIFEST_DIR")?;
     let (file, guard) = ta::non_blocking(ta::rolling::daily(log_dir,prefix));
     ts::fmt()
@@ -20,7 +20,7 @@ fn init_log(prefix: &str) -> DurakResult<ta::non_blocking::WorkerGuard> {
     Ok(guard)
 }
 
-fn run_game_client() -> DurakResult<()> {
+fn run_game_client() -> Result<()> {
     let _guard = init_log("client_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut player = NetClientDurakPlayer::new(CliPlayer::new(0))?;
     info!("Connected to game server");
