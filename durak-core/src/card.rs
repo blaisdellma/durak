@@ -1,8 +1,10 @@
 //! The basics.
 
-use serde::{Serialize,Deserialize};
 use std::fmt;
 use std::convert::TryFrom;
+
+use anyhow::bail;
+use serde::{Serialize,Deserialize};
 
 /// An enum to denote card suits.
 #[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
@@ -26,14 +28,14 @@ impl fmt::Display for Suit {
 }
 
 impl TryFrom<usize> for Suit {
-    type Error = &'static str;
+    type Error = anyhow::Error;
     fn try_from(value: usize) -> Result<Self,Self::Error> {
         match value {
             0 => Ok(Suit::Spades),
             1 => Ok(Suit::Diamonds),
             2 => Ok(Suit::Hearts),
             3 => Ok(Suit::Clubs),
-            _ => Err("Value out of range"),
+            _ => bail!("Value out of range"),
         }
     }
 }
@@ -71,7 +73,7 @@ impl fmt::Display for Rank {
 }
 
 impl TryFrom<usize> for Rank {
-    type Error = &'static str;
+    type Error = anyhow::Error;
     fn try_from(value: usize) -> Result<Self,Self::Error> {
         match value {
             1 => Ok(Rank::Six),
@@ -83,7 +85,7 @@ impl TryFrom<usize> for Rank {
             7 => Ok(Rank::Queen),
             8 => Ok(Rank::King),
             9 => Ok(Rank::Ace),
-            _ => Err("Value out of range"),
+            _ => bail!("Value out of range"),
         }
     }
 }
@@ -104,7 +106,7 @@ impl fmt::Display for Card {
 }
 
 impl TryFrom<usize> for Card {
-    type Error = &'static str;
+    type Error = anyhow::Error;
     fn try_from(value: usize) -> Result<Self,Self::Error> {
         if value < 36 {
             let r = value%9 + 1;
@@ -114,7 +116,7 @@ impl TryFrom<usize> for Card {
                 suit: Suit::try_from(s)?,
             })
         } else {
-            Err("Value out of range")
+            bail!("Value out of range")
         }
     }
 }

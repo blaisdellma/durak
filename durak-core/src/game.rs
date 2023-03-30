@@ -1,6 +1,8 @@
 //! The core game engine.
 
 use std::borrow::Cow;
+
+use anyhow::{bail,Result};
 use rand::Rng;
 use tracing::{debug,error};
 
@@ -11,44 +13,44 @@ use crate::card::transfer_card;
 /// Implement this when making a player client.
 pub trait DurakPlayer: Send + Sync {
     /// Plays an attack turn.
-    fn attack(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>>;
 
     /// Plays a defense turn.
-    fn defend(&mut self, state: &ToPlayState) -> DurakResult<Option<Card>>;
+    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>>;
 
     /// Plays a pile on turn.
-    fn pile_on(&mut self, state: &ToPlayState) -> DurakResult<Vec<Card>>;
+    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>>;
 
     /// Not playing a turn, but is sent whenever another player plays a turn to update player
     /// client game state.
-    fn observe_move(&mut self, state: &ToPlayState) -> DurakResult<()> {
+    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         _ = state;
         Ok(())
     }
 
     /// Returns a unique ID for the player.
     /// [`PlayerInfo`] contains all the other player's IDs. No duplicates allowed.
-    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> DurakResult<u64>;
+    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64>;
 
     /// A notification that the player has lost the game.
-    fn lost(&mut self) -> DurakResult<()> {
+    fn lost(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// A notification that the player has won the game.
     /// Or rather, just not lost the game.
-    fn won(&mut self) -> DurakResult<()> {
+    fn won(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// Any non-error notification to the player from the game engine
-    fn message(&mut self, msg: &str) -> DurakResult<()> {
+    fn message(&mut self, msg: &str) -> Result<()> {
         _ = msg;
         Ok(())
     }
 
     /// A notification that there has been some error and the game engine is shutting down.
-    fn error(&mut self, error: &str) -> DurakResult<()> {
+    fn error(&mut self, error: &str) -> Result<()> {
         _ = error;
         Ok(())
     }
@@ -100,7 +102,7 @@ impl DurakGame {
 
     /// Add a player to the game. Will call [`DurakPlayer::get_id()`] so make sure player client is
     /// initialized first.
-    pub fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> DurakResult<()> {
+    pub fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> Result<()> {
         let id = engine.get_id(&get_player_info(&self.state))?;
         self.state.add_player(id)?;
         self.engines.push(engine);
@@ -110,12 +112,12 @@ impl DurakGame {
 
     /// Initialize the game. Deals cards to players and decides what the trump suit is based on
     /// RNG.
-    pub fn init<R: Rng>(&mut self, rng: &mut R) -> DurakResult<()> {
+    pub fn init<R: Rng>(&mut self, rng: &mut R) -> Result<()> {
         self.state.init(rng)
     }
 
     /// Start the game.
-    pub fn run_game(mut self) -> DurakResult<()> {
+    pub fn run_game(mut self) -> Result<()> {
         match self.game_loop() {
             Ok(()) => {
                 // notify players of win/lost status
@@ -155,7 +157,7 @@ impl DurakGame {
         }
     }
 
-    fn game_loop(&mut self) -> DurakResult<()> {
+    fn game_loop(&mut self) -> Result<()> {
         while self.state.turn_type != GameTurnType::GameEnd {
             self.state.play_turn(&mut self.engines)?;
             for (i,engine) in self.engines.iter_mut().enumerate() {
@@ -186,9 +188,9 @@ impl GameState {
         }
     }
 
-    pub fn add_player(&mut self, id: u64) -> DurakResult<()> {
-        if self.players.iter().any(|player| player.id == id) { return Err("Duplicate player id".into()); }
-        if self.players.len() >= 6 { return Err("Cannot add more than 6 players".into()); }
+    pub fn add_player(&mut self, id: u64) -> Result<()> {
+        if self.players.iter().any(|player| player.id == id) { bail!("Duplicate player id"); }
+        if self.players.len() >= 6 { bail!("Cannot add more than 6 players"); }
         self.players.push(Player {
             id,
             hand: Vec::new(),
@@ -196,16 +198,16 @@ impl GameState {
         Ok(())
     }
 
-    pub fn init<R: Rng>(&mut self, rng: &mut R) -> DurakResult<()> {
+    pub fn init<R: Rng>(&mut self, rng: &mut R) -> Result<()> {
         debug!("Initializing game");
         if self.players.len() < 2 {
-            return Err(format!("Need at least two players to initialize game, only have ({})",self.players.len()).into());
+            bail!("Need at least two players to initialize game, only have ({})",self.players.len());
         } else if self.players.len() > 6 {
-            return Err("Can't have more than 6 players".into());
+            bail!("Can't have more than 6 players");
         }
 
         // shuffle deck
-        let mut in_order_cards = (0..36).map(|i| Card::try_from(i)).collect::<Result<Vec<Card>,_>>()?;
+        let mut in_order_cards = (0..36).map(|i| Card::try_from(i)).collect::<Result<Vec<Card>>>()?;
         for _ in 0..36 {
             let index = rng.gen_range(0..in_order_cards.len());
             self.draw_pile.push(in_order_cards.swap_remove(index));
@@ -252,7 +254,7 @@ impl GameState {
     }
 
 
-    fn play_turn(&mut self, engines: &mut Vec<Box<dyn DurakPlayer>>) -> DurakResult<()> {
+    fn play_turn(&mut self, engines: &mut Vec<Box<dyn DurakPlayer>>) -> Result<()> {
         debug!("Taking turn");
         let to_play_state = gen_to_play_state(&self);
         for player in &self.players {

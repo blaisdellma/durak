@@ -12,9 +12,6 @@
 
 #![warn(missing_docs)]
 
-/// A basic result type used throughout this crate
-pub type DurakResult<T> = Result<T,Box<dyn std::error::Error>>;
-
 pub mod game;
 pub mod card;
 pub mod toplaystate;

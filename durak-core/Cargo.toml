@@ -6,6 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# for errors
+anyhow = "1.0"
+
 # for game initialization
 rand="0.8.5"
 

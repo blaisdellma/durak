@@ -1,6 +1,8 @@
 //! Limited game state and player information made available to players on their turn.
 
 use std::borrow::Cow;
+
+use anyhow::{anyhow,bail,Result};
 use serde::{Serialize,Deserialize};
 
 use crate::prelude::*;
@@ -79,12 +81,12 @@ impl ToPlayState<'_> {
     }
 
     /// Validates an attack move
-    pub fn validate_attack(&self, action: &Option<Card>) -> DurakResult<()> {
-        if self.to_play == self.defender { return Err("Attack Invalid: Defender's turn".into()); }
+    pub fn validate_attack(&self, action: &Option<Card>) -> Result<()> {
+        if self.to_play == self.defender { bail!("Attack Invalid: Defender's turn"); }
         match action {
             Some(attack_card) => {
                 if !self.hand.contains(&attack_card) {
-                    return Err("Attack Invalid: Card not in player's hand".into());
+                    bail!("Attack Invalid: Card not in player's hand");
                 }
                 if self.attack_cards.len() == 0 { return Ok(()); }
                 for card in self.attack_cards.iter() {
@@ -93,7 +95,7 @@ impl ToPlayState<'_> {
                 for card in self.defense_cards.iter() {
                     if card.rank == attack_card.rank { return Ok(()); }
                 }
-                return Err("Attack Invalid: Card rank not in play".into());
+                bail!("Attack Invalid: Card rank not in play");
             },
             None => {
             }
@@ -102,16 +104,16 @@ impl ToPlayState<'_> {
     }
 
     /// Validates a defend move
-    pub fn validate_defense(&self, action: &Option<Card>) -> DurakResult<()> {
-        if self.to_play != self.defender { return Err("Defense Invalid: Not defender's turn".into()); }
+    pub fn validate_defense(&self, action: &Option<Card>) -> Result<()> {
+        if self.to_play != self.defender { bail!("Defense Invalid: Not defender's turn"); }
         match action {
             Some(defense_card) => {
                 if !self.hand.contains(&defense_card) {
-                    return Err("Defense Invalid: Card not in player's hand".into());
+                    bail!("Defense Invalid: Card not in player's hand");
                 }
-                let attack_card = self.attack_cards.last().ok_or_else(|| "Defense Invalid: No corresponding attack card")?;
+                let attack_card = self.attack_cards.last().ok_or_else(|| anyhow!("Defense Invalid: No corresponding attack card"))?;
                 if !beats_card(defense_card,attack_card,&self.trump) { 
-                    return Err("Defense Invalid: Defense card not sufficient for attack".into());
+                    bail!("Defense Invalid: Defense card not sufficient for attack");
                 }
             },
             None => {
@@ -121,11 +123,11 @@ impl ToPlayState<'_> {
     }
 
     /// Validates a pile on
-    pub fn validate_pile_on(&self, cards: &[Card]) -> DurakResult<()> {
-        if self.to_play == self.defender { return Err("Pile On Invalid: Not attackers' turn".into()); }
+    pub fn validate_pile_on(&self, cards: &[Card]) -> Result<()> {
+        if self.to_play == self.defender { bail!("Pile On Invalid: Not attackers' turn"); }
         for pile_on_card in cards {
             if !self.hand.contains(&pile_on_card) {
-                return Err("Pile On Invalid: Card not in player's hand".into());
+                bail!("Pile On Invalid: Card not in player's hand");
             }
             let mut notfound = true;
             for card in self.attack_cards.iter() {
@@ -140,7 +142,7 @@ impl ToPlayState<'_> {
                     break;
                 }
             }
-            if notfound { return Err("Pile On Invalid: Card rank not in play".into()); }
+            if notfound { bail!("Pile On Invalid: Card rank not in play"); }
         }
         Ok(())
     }
