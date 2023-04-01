@@ -9,14 +9,22 @@ use tracing::{debug,error};
 use crate::prelude::*;
 use crate::card::transfer_card;
 
+/// Defines the actions available to a player on attack and defense turns.
+#[allow(missing_docs)]
+#[derive(PartialEq)]
+pub enum Action {
+    Play(Card),
+    Pass,
+}
+
 /// Trait defining player behavior.
 /// Implement this when making a player client.
 pub trait DurakPlayer: Send + Sync {
     /// Plays an attack turn.
-    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>>;
+    fn attack(&mut self, state: &ToPlayState) -> Result<Action>;
 
     /// Plays a defense turn.
-    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>>;
+    fn defend(&mut self, state: &ToPlayState) -> Result<Action>;
 
     /// Plays a pile on turn.
     fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>>;
@@ -275,19 +283,19 @@ impl GameState {
                 let attack = {
                     if self.players[self.to_play].hand.len() == 0 { 
                         debug!("Skipping turn because player has no cards left");
-                        None
+                        Action::Pass
                     } else if self.players[self.defender].hand.len() == 0 {
                         debug!("Skipping turn because defender has no cards left");
-                        None
+                        Action::Pass
                     } else {
                         debug!("Querying player for attack");
                         let attack = engines[self.to_play].attack(&to_play_state)?;
-                        if attack.is_none() { debug!("Player has selected to pass"); }
+                        if attack == Action::Pass { debug!("Player has selected to pass"); }
                         attack
                     }
                 };
                 match attack {
-                    Some(attack_card) => {
+                    Action::Play(attack_card) => {
                         debug!("Player has selected {}",attack_card);
                         to_play_state.validate_attack(&attack)?;
                         transfer_card(&mut self.players[self.to_play].hand,&mut self.attack_cards,&attack_card);
@@ -296,7 +304,7 @@ impl GameState {
                         self.to_play = self.defender;
                         self.turn_type = GameTurnType::Defense;
                     },
-                    None => {
+                    Action::Pass => {
                         // bump to next attacker's turn, skipping those that have passed since last
                         // attack move
                         self.attackers_passed.push(self.to_play);
@@ -314,9 +322,9 @@ impl GameState {
             GameTurnType::Defense => {
                 debug!("Defense turn");
                 match engines[self.to_play].defend(&to_play_state)? {
-                    Some(defense_card) => {
+                    Action::Play(defense_card) => {
                         debug!("Player has selected {}",defense_card);
-                        to_play_state.validate_defense(&Some(defense_card))?;
+                        to_play_state.validate_defense(&Action::Play(defense_card))?;
                         transfer_card(&mut self.players[self.to_play].hand,&mut self.defense_cards,&defense_card);
                         if self.defense_cards.len() == 6 || self.players[self.to_play].hand.len() == 0 {
                             debug!("Ending round because attack has been successfully defended");
@@ -329,7 +337,7 @@ impl GameState {
                             self.turn_type = GameTurnType::Attack;
                         }
                     },
-                    None => {
+                    Action::Pass => {
                         debug!("Player has selected to pass");
                         self.turn_type = GameTurnType::PileOn;
                     },

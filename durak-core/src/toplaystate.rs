@@ -81,10 +81,10 @@ impl ToPlayState<'_> {
     }
 
     /// Validates an attack move
-    pub fn validate_attack(&self, action: &Option<Card>) -> Result<()> {
+    pub fn validate_attack(&self, action: &Action) -> Result<()> {
         if self.to_play == self.defender { bail!("Attack Invalid: Defender's turn"); }
         match action {
-            Some(attack_card) => {
+            Action::Play(attack_card) => {
                 if !self.hand.contains(&attack_card) {
                     bail!("Attack Invalid: Card not in player's hand");
                 }
@@ -97,17 +97,17 @@ impl ToPlayState<'_> {
                 }
                 bail!("Attack Invalid: Card rank not in play");
             },
-            None => {
+            Action::Pass => {
             }
         }
         Ok(())
     }
 
     /// Validates a defend move
-    pub fn validate_defense(&self, action: &Option<Card>) -> Result<()> {
+    pub fn validate_defense(&self, action: &Action) -> Result<()> {
         if self.to_play != self.defender { bail!("Defense Invalid: Not defender's turn"); }
         match action {
-            Some(defense_card) => {
+            Action::Play(defense_card) => {
                 if !self.hand.contains(&defense_card) {
                     bail!("Defense Invalid: Card not in player's hand");
                 }
@@ -116,7 +116,7 @@ impl ToPlayState<'_> {
                     bail!("Defense Invalid: Defense card not sufficient for attack");
                 }
             },
-            None => {
+            Action::Pass => {
             },
         }
         Ok(())
