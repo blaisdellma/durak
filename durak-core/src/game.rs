@@ -5,13 +5,14 @@ use std::borrow::Cow;
 use anyhow::{bail,Result};
 use rand::Rng;
 use tracing::{debug,error};
+use serde::{Serialize,Deserialize};
 
 use crate::prelude::*;
 use crate::card::transfer_card;
 
 /// Defines the actions available to a player on attack and defense turns.
 #[allow(missing_docs)]
-#[derive(PartialEq)]
+#[derive(PartialEq,Serialize,Deserialize)]
 pub enum Action {
     Play(Card),
     Pass,

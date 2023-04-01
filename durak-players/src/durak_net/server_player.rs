@@ -39,11 +39,11 @@ impl NetServerDurakPlayer {
 }
 
 impl DurakPlayer for NetServerDurakPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         self.query_client("A\n",state)
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         self.query_client("D\n",state)
     }
 

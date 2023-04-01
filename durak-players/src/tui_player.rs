@@ -84,8 +84,8 @@ impl TuiPlayer {
 }
 
 impl DurakPlayer for TuiPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
-        let (sender,receiver) = bounded::<Option<Card>>(0);
+    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
+        let (sender,receiver) = bounded::<Action>(0);
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
@@ -94,22 +94,22 @@ impl DurakPlayer for TuiPlayer {
         loop {
             debug!("loop");
             match self.test_recv(receiver.clone()) {
-                Ok(Some(card)) => {
+                Ok(Action::Play(card)) => {
                     debug!("Received card");
-                    match state.validate_attack(&Some(card)) {
-                        Ok(_) => return Ok(Some(card)),
+                    match state.validate_attack(&Action::Play(card)) {
+                        Ok(_) => return Ok(Action::Play(card)),
                         Err(_) => {},
                     }
                 },
-                Ok(None) => { return Ok(None); },
+                Ok(Action::Pass) => { return Ok(Action::Pass); },
                 Err(e) => { return Err(e); },
             }
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
-        let (sender,receiver) = bounded::<Option<Card>>(0);
+    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
+        let (sender,receiver) = bounded::<Action>(0);
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
@@ -117,13 +117,13 @@ impl DurakPlayer for TuiPlayer {
         })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         loop {
             match self.test_recv(receiver.clone()) {
-                Ok(Some(card)) => {
-                    match state.validate_defense(&Some(card)) {
-                        Ok(_) => return Ok(Some(card)),
+                Ok(Action::Play(card)) => {
+                    match state.validate_defense(&Action::Play(card)) {
+                        Ok(_) => return Ok(Action::Play(card)),
                         Err(_) => {},
                     }
                 },
-                Ok(None) => { return Ok(None); },
+                Ok(Action::Pass) => { return Ok(Action::Pass); },
                 Err(e) => { return Err(e); },
             }
         }
@@ -299,16 +299,16 @@ fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, se
             let sender2 = sender.clone();
             dialog.add_button(create_card_label(card,state.trump), move |_s| {
                 let sender2 = sender2.clone();
-                match (&sender2 as &dyn Any).downcast_ref::<Sender<Option<Card>>>() {
-                    Some(x) => x.send(Some(card)).unwrap(),
+                match (&sender2 as &dyn Any).downcast_ref::<Sender<Action>>() {
+                    Some(x) => x.send(Action::Play(card)).unwrap(),
                     None => {},
                 }
             });
         }
         dialog.add_button("Pass", move |_s| {
             let sender = sender.clone();
-            match (&sender as &dyn Any).downcast_ref::<Sender<Option<Card>>>() {
-                Some(x) => x.send(None).unwrap(),
+            match (&sender as &dyn Any).downcast_ref::<Sender<Action>>() {
+                Some(x) => x.send(Action::Pass).unwrap(),
                 None => {},
             }
         });

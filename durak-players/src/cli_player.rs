@@ -108,7 +108,7 @@ impl CliPlayer {
 }
 
 impl DurakPlayer for CliPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         println!("Player ID: {}", self.id);
         println!("You are attacking");
         self.display_game_state(state);
@@ -116,11 +116,11 @@ impl DurakPlayer for CliPlayer {
         loop {
             match self.get_input::<usize>() {
                 Err(e) => { warn!("Input error: {}",e); },
-                Ok(x) if x == 0 => { return Ok(None); },
+                Ok(x) if x == 0 => { return Ok(Action::Pass); },
                 Ok(x) if x > state.hand.len() => { warn!("Input out of range"); },
                 Ok(x) => {
-                    match state.validate_attack(&Some(state.hand[x-1])) {
-                        Ok(_) => return Ok(Some(state.hand[x-1])),
+                    match state.validate_attack(&Action::Play(state.hand[x-1])) {
+                        Ok(_) => return Ok(Action::Play(state.hand[x-1])),
                         Err(_) => { warn!("Disallowed attack card"); },
                     }
                 },
@@ -129,7 +129,7 @@ impl DurakPlayer for CliPlayer {
 
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         println!("Player ID: {}", self.id);
         println!("You are defending");
         self.display_game_state(state);
@@ -137,9 +137,9 @@ impl DurakPlayer for CliPlayer {
         loop {
             match self.get_input::<usize>() {
                 Err(e) => { warn!("Input error: {}",e); },
-                Ok(x) if x == 0 => { return Ok(None); },
+                Ok(x) if x == 0 => { return Ok(Action::Pass); },
                 Ok(x) if x > state.hand.len() => { continue; }
-                Ok(x) if state.validate_defense(&Some(state.hand[x-1])).is_ok() => { return Ok(Some(state.hand[x-1])); },
+                Ok(x) if state.validate_defense(&Action::Play(state.hand[x-1])).is_ok() => { return Ok(Action::Play(state.hand[x-1])); },
                 _ => continue
             }
         }

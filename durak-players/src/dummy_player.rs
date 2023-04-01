@@ -25,24 +25,24 @@ impl DummyDurakPlayer {
 }
 
 impl DurakPlayer for DummyDurakPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         self.wait();
         for &card in state.hand.iter() {
-            if state.validate_attack(&Some(card)).is_ok() {
-                return Ok(Some(card));
+            if state.validate_attack(&Action::Play(card)).is_ok() {
+                return Ok(Action::Play(card));
             }
         }
-        Ok(None)
+        Ok(Action::Pass)
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Option<Card>> {
+    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         self.wait();
         for &card in state.hand.iter() {
-            if state.validate_defense(&Some(card)).is_ok() {
-                return Ok(Some(card));
+            if state.validate_defense(&Action::Play(card)).is_ok() {
+                return Ok(Action::Play(card));
             }
         }
-        Ok(None)
+        Ok(Action::Pass)
     }
 
     fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
