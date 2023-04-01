@@ -43,6 +43,11 @@ pub trait DurakPlayer: Send + Sync {
         Ok(())
     }
 
+    /// Asks the player if they are ready for another game.
+    fn ready(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     /// Any non-error notification to the player from the game engine
     fn message(&mut self, msg: &str) -> Result<()> {
         _ = msg;
