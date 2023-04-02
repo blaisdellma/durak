@@ -1,10 +1,6 @@
-use std::any::Any;
-
 use anyhow::{anyhow,bail,Result};
 
 use tracing::{debug,error};
-
-use crossbeam_channel::unbounded;
 
 use cursive::{Cursive,CbSink,CursiveRunnable};
 use cursive::reexports::crossbeam_channel::{Sender,Receiver,bounded};
@@ -89,7 +85,8 @@ impl DurakPlayer for TuiPlayer {
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
-            update_game_state(s,&static_state,id,sender);
+            update_game_state_basic(s,&static_state,id);
+            update_game_state_hand_dialog_a_d(s,&static_state,id,sender);
         })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         loop {
             debug!("loop");
@@ -113,7 +110,8 @@ impl DurakPlayer for TuiPlayer {
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
-            update_game_state(s,&static_state,id,sender);
+            update_game_state_basic(s,&static_state,id);
+            update_game_state_hand_dialog_a_d(s,&static_state,id,sender);
         })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         loop {
             match self.test_recv(receiver.clone()) {
@@ -129,16 +127,34 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
-        Ok(Vec::new())
-    }
-
-    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
-        let (sender,_receiver) = unbounded::<()>();
+    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
+        // TODO:
+        let (sender,receiver) = bounded::<Vec<Card>>(0);
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
-            update_game_state(s,&static_state,id,sender);
+            update_game_state_basic(s,&static_state,id);
+            update_game_state_hand_dialog_pile_on(s,&static_state,id,sender);
+        })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
+        loop {
+            match self.test_recv(receiver.clone()) {
+                Ok(pile_on_cards) => {
+                    match state.validate_pile_on(&pile_on_cards) {
+                        Ok(_) => return Ok(pile_on_cards),
+                        Err(_) => {},
+                    }
+                },
+                Err(e) => { return Err(e); },
+            }
+        }
+    }
+
+    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
+        let id = self.id;
+        let static_state = state.to_static();
+        self.tui.send(Box::new(move |s| {
+            update_game_state_basic(s,&static_state,id);
+            update_game_state_hand_dialog_observe(s,&static_state,id);
         })).map_err(|e| anyhow!("Send Error: {:?}",e))?;
         Ok(())
     }
@@ -264,7 +280,7 @@ impl DurakPlayer for TuiPlayer {
     }
 }
 
-fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, sender: Sender<T>) {
+fn update_game_state_basic(siv: &mut Cursive, state: &ToPlayState, id: u64) {
     siv.call_on_name("player_info", |layout: &mut LinearLayout| {
         layout.clear();
         for info in state.player_info.iter() {
@@ -288,6 +304,9 @@ fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, se
             layout.add_child(create_card_view(card,state.trump));
         }
     });
+}
+
+fn update_game_state_hand_dialog_a_d(siv: &mut Cursive, state: &ToPlayState, id: u64, sender: Sender<Action>) {
     siv.call_on_name("hand_dialog", |dialog: &mut Dialog| {
         dialog.clear_buttons();
         if state.player_info[state.to_play].id == id {
@@ -298,20 +317,95 @@ fn update_game_state<T: Any>(siv: &mut Cursive, state: &ToPlayState, id: u64, se
         for &card in state.hand.iter() {
             let sender2 = sender.clone();
             dialog.add_button(create_card_label(card,state.trump), move |_s| {
-                let sender2 = sender2.clone();
-                match (&sender2 as &dyn Any).downcast_ref::<Sender<Action>>() {
-                    Some(x) => x.send(Action::Play(card)).unwrap(),
-                    None => {},
-                }
+                sender2.send(Action::Play(card)).unwrap();
             });
         }
         dialog.add_button("Pass", move |_s| {
-            let sender = sender.clone();
-            match (&sender as &dyn Any).downcast_ref::<Sender<Action>>() {
-                Some(x) => x.send(Action::Pass).unwrap(),
-                None => {},
-            }
+            sender.send(Action::Pass).unwrap();
         });
+    });
+    siv.call_on_name("main", |view: &mut HideableView<LinearLayout>| view.unhide());
+    siv.focus_name("hand_dialog").unwrap();
+    siv.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        dialog.set_focus(DialogFocus::Button(0));
+    });
+}
+
+fn set_pile_on_card(s: &mut Cursive, card: &Card) {
+    s.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        for button in dialog.buttons_mut() {
+            if button.label() == format!("< {:>4} >",card) {
+               button.set_label(format!("**{:>4}**",card)); 
+            }
+        }
+    });
+    s.with_user_data(|pile_on_cards: &mut Vec<Card>| {
+        pile_on_cards.push(*card);
+    });
+}
+
+fn unset_pile_on_card(s: &mut Cursive, card: &Card) {
+    s.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        for button in dialog.buttons_mut() {
+            if button.label() == format!("<**{:>4}**>",card) {
+               button.set_label(format!(" {:>4} ",card)); 
+            }
+        }
+    });
+    s.with_user_data(|pile_on_cards: &mut Vec<Card>| {
+        pile_on_cards.retain(|c| c != card);
+    });
+}
+
+fn update_game_state_hand_dialog_pile_on(siv: &mut Cursive, state: &ToPlayState, id: u64, sender: Sender<Vec<Card>>) {
+    siv.set_user_data(Vec::<Card>::new());
+    siv.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        dialog.clear_buttons();
+        if state.player_info[state.to_play].id == id {
+            dialog.set_title("Your Turn");
+        } else {
+            dialog.set_title(format!("Player {} turn",state.player_info[state.to_play].id));
+        }
+        for &card in state.hand.iter() {
+            if state.validate_pile_on(&vec![card]).is_ok() {
+                dialog.add_button(create_card_label(card,state.trump),move |s| {
+                    if s.with_user_data(|pile_on_cards: &mut Vec<Card>| {
+                        pile_on_cards.contains(&card)
+                    }).unwrap() {
+                        unset_pile_on_card(s,&card);
+                    } else {
+                        set_pile_on_card(s,&card);
+                    }
+                });
+            } else {
+                dialog.add_button(create_card_label(card,state.trump),move |_s| {
+                    // do nothing
+                });
+            }
+        }
+        dialog.add_button("Pile On", move |s| {
+            sender.send(s.take_user_data().unwrap()).unwrap();
+        });
+    });
+    siv.call_on_name("main", |view: &mut HideableView<LinearLayout>| view.unhide());
+    siv.focus_name("hand_dialog").unwrap();
+    siv.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        dialog.set_focus(DialogFocus::Button(0));
+    });
+}
+
+fn update_game_state_hand_dialog_observe(siv: &mut Cursive, state: &ToPlayState, id: u64) {
+    siv.call_on_name("hand_dialog", |dialog: &mut Dialog| {
+        dialog.clear_buttons();
+        if state.player_info[state.to_play].id == id {
+            dialog.set_title("Your Turn");
+        } else {
+            dialog.set_title(format!("Player {} turn",state.player_info[state.to_play].id));
+        }
+        for &card in state.hand.iter() {
+            dialog.add_button(create_card_label(card,state.trump), |_s| {} );
+        }
+        dialog.add_button("Pass", move |_s| {});
     });
     siv.call_on_name("main", |view: &mut HideableView<LinearLayout>| view.unhide());
     siv.focus_name("hand_dialog").unwrap();
