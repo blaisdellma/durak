@@ -146,4 +146,23 @@ impl ToPlayState<'_> {
         }
         Ok(())
     }
+
+    /// Validates a single card for pile on
+    pub fn validate_pile_on_single(&self, pile_on_card: &Card) -> Result<()> {
+        if self.to_play == self.defender { bail!("Pile On Invalid: Not attackers' turn"); }
+        if !self.hand.contains(&pile_on_card) {
+            bail!("Pile On Invalid: Card not in player's hand");
+        }
+        for card in self.attack_cards.iter() {
+            if card.rank == pile_on_card.rank {
+                return Ok(());
+            }
+        }
+        for card in self.defense_cards.iter() {
+            if card.rank == pile_on_card.rank {
+                return Ok(());
+            }
+        }
+        bail!("Pile On Invalid: Card rank not in play");
+    }
 }
