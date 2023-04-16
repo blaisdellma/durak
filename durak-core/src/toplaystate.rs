@@ -4,6 +4,7 @@ use std::borrow::Cow;
 
 use anyhow::{anyhow,bail,Result};
 use serde::{Serialize,Deserialize};
+use thiserror::Error;
 
 use crate::prelude::*;
 
@@ -60,6 +61,20 @@ fn beats_card(defense: &Card, attack: &Card, trump: &Suit) -> bool {
     true
 }
 
+/// An error type for player move validation
+#[derive(Error,Debug)]
+#[allow(missing_docs)]
+pub enum ValidationError {
+    #[error("This is the wrong turn type for the current player")]
+    WrongTurnType,
+    #[error("Card {0} is not in player's hand")]
+    CardNotInHand(Card),
+    #[error("Invalid attack move: card rank {:?} has not been played yet",.0.rank)]
+    InvalidAttack(Card),
+    #[error("Invalid defense move: defense card {0} does not beat attack card {1}")]
+    InvalidDefense(Card,Card),
+}
+
 // validates moves
 // used as error causing assertions in game code
 // players can call before returning their move
@@ -82,11 +97,11 @@ impl ToPlayState<'_> {
 
     /// Validates an attack move
     pub fn validate_attack(&self, action: &Action) -> Result<()> {
-        if self.to_play == self.defender { bail!("Attack Invalid: Defender's turn"); }
+        if self.to_play == self.defender { bail!(ValidationError::WrongTurnType); }
         match action {
             Action::Play(attack_card) => {
                 if !self.hand.contains(&attack_card) {
-                    bail!("Attack Invalid: Card not in player's hand");
+                    bail!(ValidationError::CardNotInHand(*attack_card));
                 }
                 if self.attack_cards.len() == 0 { return Ok(()); }
                 for card in self.attack_cards.iter() {
@@ -95,7 +110,7 @@ impl ToPlayState<'_> {
                 for card in self.defense_cards.iter() {
                     if card.rank == attack_card.rank { return Ok(()); }
                 }
-                bail!("Attack Invalid: Card rank not in play");
+                bail!(ValidationError::InvalidAttack(*attack_card));
             },
             Action::Pass => {
             }
@@ -105,15 +120,15 @@ impl ToPlayState<'_> {
 
     /// Validates a defend move
     pub fn validate_defense(&self, action: &Action) -> Result<()> {
-        if self.to_play != self.defender { bail!("Defense Invalid: Not defender's turn"); }
+        if self.to_play != self.defender { bail!(ValidationError::WrongTurnType); }
         match action {
             Action::Play(defense_card) => {
                 if !self.hand.contains(&defense_card) {
-                    bail!("Defense Invalid: Card not in player's hand");
+                    bail!(ValidationError::CardNotInHand(*defense_card));
                 }
                 let attack_card = self.attack_cards.last().ok_or_else(|| anyhow!("Defense Invalid: No corresponding attack card"))?;
                 if !beats_card(defense_card,attack_card,&self.trump) { 
-                    bail!("Defense Invalid: Defense card not sufficient for attack");
+                    bail!(ValidationError::InvalidDefense(*defense_card,*attack_card));
                 }
             },
             Action::Pass => {
@@ -124,10 +139,10 @@ impl ToPlayState<'_> {
 
     /// Validates a pile on
     pub fn validate_pile_on(&self, cards: &[Card]) -> Result<()> {
-        if self.to_play == self.defender { bail!("Pile On Invalid: Not attackers' turn"); }
+        if self.to_play == self.defender { bail!(ValidationError::WrongTurnType); }
         for pile_on_card in cards {
             if !self.hand.contains(&pile_on_card) {
-                bail!("Pile On Invalid: Card not in player's hand");
+                bail!(ValidationError::CardNotInHand(*pile_on_card));
             }
             let mut notfound = true;
             for card in self.attack_cards.iter() {
@@ -142,16 +157,16 @@ impl ToPlayState<'_> {
                     break;
                 }
             }
-            if notfound { bail!("Pile On Invalid: Card rank not in play"); }
+            if notfound { bail!(ValidationError::InvalidAttack(*pile_on_card)); }
         }
         Ok(())
     }
 
     /// Validates a single card for pile on
     pub fn validate_pile_on_single(&self, pile_on_card: &Card) -> Result<()> {
-        if self.to_play == self.defender { bail!("Pile On Invalid: Not attackers' turn"); }
+        if self.to_play == self.defender { bail!(ValidationError::WrongTurnType); }
         if !self.hand.contains(&pile_on_card) {
-            bail!("Pile On Invalid: Card not in player's hand");
+            bail!(ValidationError::CardNotInHand(*pile_on_card));
         }
         for card in self.attack_cards.iter() {
             if card.rank == pile_on_card.rank {
@@ -163,6 +178,6 @@ impl ToPlayState<'_> {
                 return Ok(());
             }
         }
-        bail!("Pile On Invalid: Card rank not in play");
+        bail!(ValidationError::InvalidAttack(*pile_on_card));
     }
 }

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 # for errors
 anyhow = "1.0"
+thiserror = "1.0"
 
 # for game initialization
 rand="0.8.5"

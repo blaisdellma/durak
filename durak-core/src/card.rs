@@ -7,7 +7,7 @@ use anyhow::bail;
 use serde::{Serialize,Deserialize};
 
 /// An enum to denote card suits.
-#[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
+#[derive(PartialEq,Copy,Clone,Serialize,Deserialize,Debug)]
 #[allow(missing_docs)]
 pub enum Suit {
     Spades = 0,
@@ -42,7 +42,7 @@ impl TryFrom<usize> for Suit {
 
 /// An enum to denote card ranks.
 /// Only includes sixes to Aces.
-#[derive(PartialEq,Copy,Clone,PartialOrd,Serialize,Deserialize)]
+#[derive(PartialEq,Copy,Clone,PartialOrd,Serialize,Deserialize,Debug)]
 #[allow(missing_docs)]
 pub enum Rank {
     Ace = 9,
@@ -91,7 +91,7 @@ impl TryFrom<usize> for Rank {
 }
 
 /// A single card.
-#[derive(PartialEq,Copy,Clone,Serialize,Deserialize)]
+#[derive(PartialEq,Copy,Clone,Serialize,Deserialize,Debug)]
 pub struct Card {
     /// The card's rank.
     pub rank: Rank,
