@@ -143,30 +143,13 @@ impl ToPlayState<'_> {
     pub fn validate_pile_on(&self, cards: &[Card]) -> Result<(), ValidationError> {
         if self.to_play == self.defender { return Err(ValidationError::WrongTurnType); }
         for pile_on_card in cards {
-            if !self.hand.contains(&pile_on_card) {
-                return Err(ValidationError::CardNotInHand(*pile_on_card));
-            }
-            let mut notfound = true;
-            for card in self.attack_cards.iter() {
-                if card.rank == pile_on_card.rank {
-                    notfound = false;
-                    break;
-                }
-            }
-            for card in self.defense_cards.iter() {
-                if card.rank == pile_on_card.rank {
-                    notfound = false;
-                    break;
-                }
-            }
-            if notfound { return Err(ValidationError::InvalidAttack(*pile_on_card)); }
+            self.validate_pile_on_single(pile_on_card)?;
         }
         Ok(())
     }
 
-    /// Validates a single card for pile on
+    /// Validates a single card for pile on. Does not validate turn type.
     pub fn validate_pile_on_single(&self, pile_on_card: &Card) -> Result<(), ValidationError> {
-        if self.to_play == self.defender { return Err(ValidationError::WrongTurnType); }
         if !self.hand.contains(&pile_on_card) {
             return Err(ValidationError::CardNotInHand(*pile_on_card));
         }
