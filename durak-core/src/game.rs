@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 
 use anyhow::{bail,Result};
+use async_trait::async_trait;
 use rand::Rng;
 use tracing::{debug,error};
 use serde::{Serialize,Deserialize};
@@ -20,51 +21,52 @@ pub enum Action {
 
 /// Trait defining player behavior.
 /// Implement this when making a player client.
+#[async_trait]
 pub trait DurakPlayer: Send + Sync {
     /// Plays an attack turn.
-    fn attack(&mut self, state: &ToPlayState) -> Result<Action>;
+    async fn attack(&mut self, state: &ToPlayState) -> Result<Action>;
 
     /// Plays a defense turn.
-    fn defend(&mut self, state: &ToPlayState) -> Result<Action>;
+    async fn defend(&mut self, state: &ToPlayState) -> Result<Action>;
 
     /// Plays a pile on turn.
-    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>>;
+    async fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>>;
 
     /// Not playing a turn, but is sent whenever another player plays a turn to update player
     /// client game state.
-    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
+    async fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         _ = state;
         Ok(())
     }
 
     /// Returns a unique ID for the player.
     /// [`PlayerInfo`] contains all the other player's IDs. No duplicates allowed.
-    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64>;
+    async fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64>;
 
     /// A notification that the player has lost the game.
-    fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// A notification that the player has won the game.
     /// Or rather, just not lost the game.
-    fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// Asks the player if they are ready for another game.
-    fn ready(&mut self) -> Result<()> {
+    async fn ready(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// Any non-error notification to the player from the game engine
-    fn message(&mut self, msg: &str) -> Result<()> {
+    async fn message(&mut self, msg: &str) -> Result<()> {
         _ = msg;
         Ok(())
     }
 
     /// A notification that there has been some error and the game engine is shutting down.
-    fn error(&mut self, error: &str) -> Result<()> {
+    async fn error(&mut self, error: &str) -> Result<()> {
         _ = error;
         Ok(())
     }
@@ -116,8 +118,8 @@ impl DurakGame {
 
     /// Add a player to the game. Will call [`DurakPlayer::get_id()`] so make sure player client is
     /// initialized first.
-    pub fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> Result<()> {
-        let id = engine.get_id(&get_player_info(&self.state))?;
+    pub async fn add_player(&mut self, mut engine: Box<dyn DurakPlayer>) -> Result<()> {
+        let id = engine.get_id(&get_player_info(&self.state)).await?;
         self.state.add_player(id)?;
         self.engines.push(engine);
         debug!("Added player # {}", id);
@@ -131,52 +133,56 @@ impl DurakGame {
     }
 
     /// Start the game.
-    pub fn run_game(mut self) -> Result<()> {
-        match self.game_loop() {
+    pub async fn run_game(mut self) -> Result<()> {
+        let mut set = tokio::task::JoinSet::new();
+        match self.game_loop().await {
             Ok(()) => {
                 // notify players of win/lost status
-                let handles : Vec<_> = std::iter::zip(self.state.players.into_iter(),self.engines.into_iter()).map(|(player,mut engine)| {
-                    std::thread::spawn(move || {
-                        if player.hand.len() == 0 {
-                            debug!("Player {} won ", player.id);
-                            match engine.won() {
-                                Ok(_) => (),
-                                Err(e) => { error!("Error: {}", e); },
-                            }
-                        } else {
-                            debug!("Player {} lost ", player.id);
-                            match engine.lost() {
-                                Ok(_) => (),
-                                Err(e) => { error!("Error: {}", e); },
-                            }
-                        }
-                    })
-                }).collect();
-                for h in handles { h.join().unwrap(); }
+                for (player, mut engine) in std::iter::zip(self.state.players,self.engines) {
+                    if player.hand.len() == 0 {
+                        debug!("Player {} won ", player.id);
+                        set.spawn( async move {
+                            engine.won().await
+                        });
+                    } else {
+                        debug!("Player {} lost ", player.id);
+                        set.spawn( async move {
+                            engine.lost().await
+                        });
+                    }
+                }
+                while let Some(res) = set.join_next().await {
+                    match res {
+                        Ok(_) => (),
+                        Err(e) => { error!("Error: {}", e); },
+                    }
+                }
                 Ok(())
             },
             Err(e) => {
-                let handles : Vec<_> = self.engines.into_iter().map(|mut engine| {
+                for mut engine in self.engines {
                     let err_str = format!("{}",e); 
-                    std::thread::spawn(move || {
-                        match engine.error(&err_str) {
-                            Ok(_) => {},
-                            Err(e) => { error!("Error: {}", e); },
-                        }
-                    })
-                }).collect();
-                for h in handles { h.join().unwrap(); }
+                    set.spawn( async move {
+                        engine.error(&err_str).await
+                    });
+                }
+                while let Some(res) = set.join_next().await {
+                    match res {
+                        Ok(_) => (),
+                        Err(e) => { error!("Error: {}", e); },
+                    }
+                }
                 Err(e)
             },
         }
     }
 
-    fn game_loop(&mut self) -> Result<()> {
+    async fn game_loop(&mut self) -> Result<()> {
         while self.state.turn_type != GameTurnType::GameEnd {
-            self.state.play_turn(&mut self.engines)?;
+            self.state.play_turn(&mut self.engines).await?;
             for (i,engine) in self.engines.iter_mut().enumerate() {
                 let to_play_state = gen_to_play_state_w_hand(&self.state,i);
-                engine.observe_move(&to_play_state)?;
+                engine.observe_move(&to_play_state).await?;
             }
         }
         Ok(())
@@ -268,7 +274,7 @@ impl GameState {
     }
 
 
-    fn play_turn(&mut self, engines: &mut Vec<Box<dyn DurakPlayer>>) -> Result<()> {
+    async fn play_turn(&mut self, engines: &mut Vec<Box<dyn DurakPlayer>>) -> Result<()> {
         debug!("Taking turn");
         let to_play_state = gen_to_play_state(&self);
         for player in &self.players {
@@ -290,7 +296,7 @@ impl GameState {
                         Action::Pass
                     } else {
                         debug!("Querying player for attack");
-                        let attack = engines[self.to_play].attack(&to_play_state)?;
+                        let attack = engines[self.to_play].attack(&to_play_state).await?;
                         if attack == Action::Pass { debug!("Player has selected to pass"); }
                         attack
                     }
@@ -322,7 +328,7 @@ impl GameState {
             },
             GameTurnType::Defense => {
                 debug!("Defense turn");
-                match engines[self.to_play].defend(&to_play_state)? {
+                match engines[self.to_play].defend(&to_play_state).await? {
                     Action::Play(defense_card) => {
                         debug!("Player has selected {}",defense_card);
                         to_play_state.validate_defense(&Action::Play(defense_card))?;
@@ -350,7 +356,7 @@ impl GameState {
                     if ind_pile == self.defender { continue; }
                     self.to_play = ind_pile;
                     let to_play_state = gen_to_play_state(&self);
-                    let pile_on_cards = engines[ind_pile].pile_on(&to_play_state)?;
+                    let pile_on_cards = engines[ind_pile].pile_on(&to_play_state).await?;
                     to_play_state.validate_pile_on(&pile_on_cards)?;
                     debug!("Player {} has piled on {}",self.players[ind_pile].id,hand_fmt(&pile_on_cards));
 
