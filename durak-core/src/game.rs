@@ -107,6 +107,12 @@ pub struct DurakGame {
     engines: Vec<Box<dyn DurakPlayer>>,
 }
 
+/// The results of a game of Durak
+pub struct DurakGameResult {
+    winner: Option<Box<dyn DurakPlayer>>,
+    losers: Vec<Box<dyn DurakPlayer>>,
+}
+
 impl DurakGame {
     /// Create a new game.
     pub fn new() -> Self {
@@ -133,7 +139,11 @@ impl DurakGame {
     }
 
     /// Start the game.
-    pub async fn run_game(mut self) -> Result<()> {
+    pub async fn run_game(mut self) -> Result<DurakGameResult> {
+        let mut result = DurakGameResult {
+            winner: None,
+            losers: vec![],
+        };
         let mut set = tokio::task::JoinSet::new();
         match self.game_loop().await {
             Ok(()) => {
@@ -142,28 +152,35 @@ impl DurakGame {
                     if player.hand.len() == 0 {
                         debug!("Player {} won ", player.id);
                         set.spawn( async move {
-                            engine.won().await
+                            engine.won().await.map(|_| (player,engine))
                         });
                     } else {
                         debug!("Player {} lost ", player.id);
                         set.spawn( async move {
-                            engine.lost().await
+                            engine.lost().await.map(|_| (player,engine))
                         });
                     }
                 }
                 while let Some(res) = set.join_next().await {
                     match res {
-                        Ok(_) => (),
+                        Ok(Ok((player,engine))) => {
+                            if player.hand.len() == 0 {
+                                result.winner = Some(engine);
+                            } else {
+                                result.losers.push(engine);
+                            }
+                        },
+                        Ok(Err(e)) => { error!("Error: {}", e); },
                         Err(e) => { error!("Error: {}", e); },
                     }
                 }
-                Ok(())
+                Ok(result)
             },
             Err(e) => {
-                for mut engine in self.engines {
+                for (player, mut engine) in std::iter::zip(self.state.players,self.engines) {
                     let err_str = format!("{}",e); 
                     set.spawn( async move {
-                        engine.error(&err_str).await
+                        engine.error(&err_str).await.map(|_| (player,engine))
                     });
                 }
                 while let Some(res) = set.join_next().await {
