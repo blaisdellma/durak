@@ -1,4 +1,5 @@
 use anyhow::{anyhow,bail,Result};
+use async_trait::async_trait;
 
 use tracing::{debug,error};
 
@@ -79,8 +80,9 @@ impl TuiPlayer {
 
 }
 
+#[async_trait]
 impl DurakPlayer for TuiPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         let (sender,receiver) = bounded::<Action>(0);
         let id = self.id;
         let static_state = state.to_static();
@@ -105,7 +107,7 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         let (sender,receiver) = bounded::<Action>(0);
         let id = self.id;
         let static_state = state.to_static();
@@ -127,7 +129,7 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
+    async fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
         // TODO:
         let (sender,receiver) = bounded::<Vec<Card>>(0);
         let id = self.id;
@@ -149,7 +151,7 @@ impl DurakPlayer for TuiPlayer {
         }
     }
 
-    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
+    async fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         let id = self.id;
         let static_state = state.to_static();
         self.tui.send(Box::new(move |s| {
@@ -159,7 +161,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(())
     }
 
-    fn get_id(&mut self, _player_info: &Vec<PlayerInfo>) -> Result<u64> {
+    async fn get_id(&mut self, _player_info: &Vec<PlayerInfo>) -> Result<u64> {
         let player_info = _player_info.clone();
         let (sender,receiver) = bounded::<u64>(0);
         self.tui.send(Box::new(move |s| {
@@ -197,7 +199,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(id)
     }
 
-    fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -216,7 +218,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(())
     }
 
-    fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -235,7 +237,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(())
     }
 
-    fn message(&mut self, msg: &str) -> Result<()> {
+    async fn message(&mut self, msg: &str) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         let msg = msg.to_owned();
         self.tui.send(Box::new(move |s: &mut Cursive| {
@@ -258,7 +260,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(())
     }
 
-    fn error(&mut self, error: &str) -> Result<()> {
+    async fn error(&mut self, error: &str) -> Result<()> {
         let (sender,receiver) = bounded::<()>(0);
         let error = error.to_owned();
         self.tui.send(Box::new(move |s: &mut Cursive| {

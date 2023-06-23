@@ -1,6 +1,7 @@
 use durak_core::prelude::*;
 
 use anyhow::Result;
+use async_trait::async_trait;
 
 pub struct DummyDurakPlayer {
     id: u64,
@@ -24,8 +25,9 @@ impl DummyDurakPlayer {
     }
 }
 
+#[async_trait]
 impl DurakPlayer for DummyDurakPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         self.wait();
         for &card in state.hand.iter() {
             if state.validate_attack(&Action::Play(card)).is_ok() {
@@ -35,7 +37,7 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(Action::Pass)
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         self.wait();
         for &card in state.hand.iter() {
             if state.validate_defense(&Action::Play(card)).is_ok() {
@@ -45,12 +47,12 @@ impl DurakPlayer for DummyDurakPlayer {
         Ok(Action::Pass)
     }
 
-    fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
+    async fn pile_on(&mut self, _state: &ToPlayState) -> Result<Vec<Card>> {
         self.wait();
         Ok(Vec::new())
     }
 
-    fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64> {
+    async fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64> {
         for info in player_info {
             if self.id <= info.id {
                 self.id = info.id + 1;

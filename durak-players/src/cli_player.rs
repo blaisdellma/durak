@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use anyhow::{anyhow,Result};
+use async_trait::async_trait;
 use tracing::warn;
 
 use durak_core::prelude::*;
@@ -107,8 +108,9 @@ impl CliPlayer {
     }
 }
 
+#[async_trait]
 impl DurakPlayer for CliPlayer {
-    fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn attack(&mut self, state: &ToPlayState) -> Result<Action> {
         println!("Player ID: {}", self.id);
         println!("You are attacking");
         self.display_game_state(state);
@@ -129,7 +131,7 @@ impl DurakPlayer for CliPlayer {
 
     }
 
-    fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
+    async fn defend(&mut self, state: &ToPlayState) -> Result<Action> {
         println!("Player ID: {}", self.id);
         println!("You are defending");
         self.display_game_state(state);
@@ -145,7 +147,7 @@ impl DurakPlayer for CliPlayer {
         }
     }
 
-    fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
+    async fn pile_on(&mut self, state: &ToPlayState) -> Result<Vec<Card>> {
         println!("Player ID: {}", self.id);
         println!("You are piling on");
         self.display_game_state(state);
@@ -180,35 +182,35 @@ impl DurakPlayer for CliPlayer {
         }
     }
 
-    fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
+    async fn observe_move(&mut self, state: &ToPlayState) -> Result<()> {
         println!("Player ID: {}", self.id);
         self.display_game_state(state);
         Ok(())
     }
 
-    fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<()> {
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
         Ok(())
     }
 
-    fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<()> {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
         Ok(())
     }
 
-    fn message(&mut self, msg: &str) -> Result<()> {
+    async fn message(&mut self, msg: &str) -> Result<()> {
         println!("Message from game engine: {}",msg);
         Ok(())
     }
 
-    fn error(&mut self, error: &str) -> Result<()> {
+    async fn error(&mut self, error: &str) -> Result<()> {
         println!("I'm sorry, there was an error.");
         println!("Error: {}",error);
         println!("The game is over now.");
         Ok(())
     }
 
-    fn get_id(&mut self,player_info: &Vec<PlayerInfo>) -> Result<u64> {
+    async fn get_id(&mut self,player_info: &Vec<PlayerInfo>) -> Result<u64> {
         println!("Player List:");
         for info in player_info {
             println!("Player {}",info.id);
