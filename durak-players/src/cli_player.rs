@@ -188,14 +188,14 @@ impl DurakPlayer for CliPlayer {
         Ok(())
     }
 
-    async fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<Ready> {
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
-        Ok(())
+        Ok(Ready::Yes)
     }
 
-    async fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<Ready> {
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
-        Ok(())
+        Ok(Ready::Yes)
     }
 
     async fn message(&mut self, msg: &str) -> Result<()> {

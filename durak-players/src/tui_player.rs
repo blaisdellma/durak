@@ -199,7 +199,7 @@ impl DurakPlayer for TuiPlayer {
         Ok(id)
     }
 
-    async fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<Ready> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -215,10 +215,10 @@ impl DurakPlayer for TuiPlayer {
         self.test_recv(receiver)?;
         self.end()?;
         println!("Congratulations, Player #{}\nYOU WON!!!", self.id);
-        Ok(())
+        Ok(Ready::Yes)
     }
 
-    async fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<Ready> {
         let (sender,receiver) = bounded::<()>(0);
         self.tui.send(Box::new(|s: &mut Cursive| {
             s.call_on_name("main", | hideable: &mut HideableView<LinearLayout> | {
@@ -234,7 +234,7 @@ impl DurakPlayer for TuiPlayer {
         self.test_recv(receiver)?;
         self.end()?;
         println!("I'm sorry, Player #{}\nYou lost.", self.id);
-        Ok(())
+        Ok(Ready::Yes)
     }
 
     async fn message(&mut self, msg: &str) -> Result<()> {

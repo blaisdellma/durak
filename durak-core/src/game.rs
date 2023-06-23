@@ -19,6 +19,14 @@ pub enum Action {
     Pass,
 }
 
+/// Used to signify if the player is ready for another game.
+#[allow(missing_docs)]
+#[derive(PartialEq,Serialize,Deserialize)]
+pub enum Ready {
+    Yes,
+    No,
+}
+
 /// Trait defining player behavior.
 /// Implement this when making a player client.
 #[async_trait]
@@ -44,19 +52,14 @@ pub trait DurakPlayer: Send + Sync {
     async fn get_id(&mut self, player_info: &Vec<PlayerInfo>) -> Result<u64>;
 
     /// A notification that the player has lost the game.
-    async fn lost(&mut self) -> Result<()> {
-        Ok(())
+    async fn lost(&mut self) -> Result<Ready> {
+        Ok(Ready::Yes)
     }
 
     /// A notification that the player has won the game.
     /// Or rather, just not lost the game.
-    async fn won(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    /// Asks the player if they are ready for another game.
-    async fn ready(&mut self) -> Result<()> {
-        Ok(())
+    async fn won(&mut self) -> Result<Ready> {
+        Ok(Ready::Yes)
     }
 
     /// Any non-error notification to the player from the game engine

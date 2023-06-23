@@ -61,18 +61,18 @@ impl DurakPlayer for NetServerDurakPlayer {
         self.query_client("I\n",player_info)
     }
 
-    async fn won(&mut self) -> Result<()> {
+    async fn won(&mut self) -> Result<Ready> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("W\n".as_bytes())?;
         stream.flush()?;
-        Ok(())
+        Ok(Ready::Yes)
     }
 
-    async fn lost(&mut self) -> Result<()> {
+    async fn lost(&mut self) -> Result<Ready> {
         let mut stream = BufWriter::new(&mut self.stream);
         stream.write("L\n".as_bytes())?;
         stream.flush()?;
-        Ok(())
+        Ok(Ready::Yes)
     }
 
     async fn message(&mut self, msg: &str) -> Result<()> {
