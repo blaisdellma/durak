@@ -22,7 +22,7 @@ fn init_log(prefix: &str) -> Result<ta::non_blocking::WorkerGuard> {
     Ok(guard)
 }
 
-fn run_game_server() -> Result<()> {
+async fn run_game_server() -> Result<()> {
     let _guard = init_log("server_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut game = DurakGame::new();
 
@@ -32,17 +32,18 @@ fn run_game_server() -> Result<()> {
         info!("Client connected to server");
     }
     for player in server.get_players()? {
-        game.add_player(Box::new(player))?;
+        game.add_player(Box::new(player)).await?;
     }
 
     game.init(&mut thread_rng()).map_err(|e| { error!("Game initialization error: {}",e); e })?;
-    game.run_game().map_err(|e| { error!("Game error: {}",e); e })?;
+    game.run_game().await.map_err(|e| { error!("Game error: {}",e); e })?;
 
     Ok(())
 }
 
-fn main() {
-    if let Err(e) = run_game_server() {
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run_game_server().await {
         eprintln!("ERROR: {}",e);
     }
 }

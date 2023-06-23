@@ -29,6 +29,9 @@ serde_json="1.0"
 cursive="0.20"
 crossbeam-channel="0.5"
 
+# for async
+tokio={version="1.28.2",features=["full"]}
+
 [[bin]]
 name = "durak-server"
 path = "src/bin/server.rs"

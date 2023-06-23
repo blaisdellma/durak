@@ -20,12 +20,12 @@ fn init_log(prefix: &str) -> Result<ta::non_blocking::WorkerGuard> {
     Ok(guard)
 }
 
-fn run_game_client() -> Result<()> {
+async fn run_game_client() -> Result<()> {
     let _guard = init_log("client_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut player = NetClientDurakPlayer::new(CliPlayer::new(0))?;
     info!("Connected to game server");
     loop {
-        match player.wait()? {
+        match player.wait().await? {
             1 => { break; },
             2 => { break; },
             _ => {},
@@ -34,8 +34,9 @@ fn run_game_client() -> Result<()> {
     Ok(())
 }
 
-fn main() {
-    if let Err(e) = run_game_client() {
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run_game_client().await {
         eprintln!("ERROR: {}",e);
     }
 }

@@ -22,7 +22,7 @@ fn init_log(prefix: &str) -> Result<ta::non_blocking::WorkerGuard> {
     Ok(guard)
 }
 
-fn run_game_server() -> Result<()> {
+async fn run_game_server() -> Result<()> {
     let _guard = init_log("server_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut game = DurakGame::new();
     // game.add_player(Box::new(TUIDurakPlayer::new(1)),1)?;
@@ -32,21 +32,21 @@ fn run_game_server() -> Result<()> {
         server.wait_connection()?;
     }
     for player in server.get_players()? {
-        game.add_player(Box::new(player))?;
+        game.add_player(Box::new(player)).await?;
     }
 
     game.init(&mut thread_rng()).map_err(|e| { error!("Game initialization error: {}",e); e })?;
-    game.run_game().map_err(|e| { error!("Game error: {}",e); e })?;
+    game.run_game().await.map_err(|e| { error!("Game error: {}",e); e })?;
 
     Ok(())
 }
 
-fn run_game_client() -> Result<()> {
+async fn run_game_client() -> Result<()> {
     let _guard = init_log("client_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut player = NetClientDurakPlayer::new(CliPlayer::new(0))?;
     info!("Connected to game server");
     loop {
-        match player.wait()? {
+        match player.wait().await? {
             1 => { break; },
             2 => { break; },
             _ => {},
@@ -55,27 +55,28 @@ fn run_game_client() -> Result<()> {
     Ok(())
 }
 
-fn run_game_test<T: DurakPlayer + 'static>(num_players: usize,player: T) -> Result<()> {
+async fn run_game_test<T: DurakPlayer + 'static>(num_players: usize,player: T) -> Result<()> {
     let _guard = init_log("test_log").map_err(|e| { warn!("Log init failed"); e })?;
     let mut game = DurakGame::new();
 
     for _ in 0..num_players {
-        game.add_player(Box::new(DummyDurakPlayer::new().with_wait(500)))?;
+        game.add_player(Box::new(DummyDurakPlayer::new().with_wait(500))).await?;
     }
-    game.add_player(Box::new(player))?;
+    game.add_player(Box::new(player)).await?;
 
     game.init(&mut thread_rng()).map_err(|e| { error!("Game initialization error: {}",e); e })?;
-    game.run_game().map_err(|e| { error!("Game error: {}",e); e })?;
+    game.run_game().await.map_err(|e| { error!("Game error: {}",e); e })?;
 
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     match match std::env::args().skip(1).next() {
-        Some(arg) if arg == "server" => run_game_server(),
-        Some(arg) if arg == "client" => run_game_client(),
-        Some(arg) if arg == "test_cli" => run_game_test(2,CliPlayer::new(0)),
-        Some(arg) if arg == "test_tui" => run_game_test(2,TuiPlayer::new()),
+        Some(arg) if arg == "server" => run_game_server().await,
+        Some(arg) if arg == "client" => run_game_client().await,
+        Some(arg) if arg == "test_cli" => run_game_test(2,CliPlayer::new(0)).await,
+        Some(arg) if arg == "test_tui" => run_game_test(2,TuiPlayer::new()).await,
         _ => Err(anyhow!("Command option not recognized")),
     } {
         Ok(()) => {},
