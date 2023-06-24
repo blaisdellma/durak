@@ -112,8 +112,8 @@ pub struct DurakGame {
 
 /// The results of a game of Durak
 pub struct DurakGameResult {
-    winner: Option<Box<dyn DurakPlayer>>,
-    losers: Vec<Box<dyn DurakPlayer>>,
+    winner: Option<(Box<dyn DurakPlayer>,Ready)>,
+    losers: Vec<(Box<dyn DurakPlayer>,Ready)>,
 }
 
 impl DurakGame {
@@ -155,22 +155,22 @@ impl DurakGame {
                     if player.hand.len() == 0 {
                         debug!("Player {} won ", player.id);
                         set.spawn( async move {
-                            engine.won().await.map(|_| (player,engine))
+                            engine.won().await.map(|ready| (player,engine,ready))
                         });
                     } else {
                         debug!("Player {} lost ", player.id);
                         set.spawn( async move {
-                            engine.lost().await.map(|_| (player,engine))
+                            engine.lost().await.map(|ready| (player,engine,ready))
                         });
                     }
                 }
                 while let Some(res) = set.join_next().await {
                     match res {
-                        Ok(Ok((player,engine))) => {
+                        Ok(Ok((player,engine,ready))) => {
                             if player.hand.len() == 0 {
-                                result.winner = Some(engine);
+                                result.winner = Some((engine,ready));
                             } else {
-                                result.losers.push(engine);
+                                result.losers.push((engine,ready));
                             }
                         },
                         Ok(Err(e)) => { error!("Error: {}", e); },
@@ -183,7 +183,7 @@ impl DurakGame {
                 for (player, mut engine) in std::iter::zip(self.state.players,self.engines) {
                     let err_str = format!("{}",e); 
                     set.spawn( async move {
-                        engine.error(&err_str).await.map(|_| (player,engine))
+                        engine.error(&err_str).await.map(|_| (player,engine,Ready::No))
                     });
                 }
                 while let Some(res) = set.join_next().await {
